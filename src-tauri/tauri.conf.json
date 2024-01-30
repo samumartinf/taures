@@ -38,8 +38,8 @@
         "fullscreen": false,
         "resizable": true,
         "title": "taures",
-        "width": 800,
-        "height": 600
+        "width": 750,
+        "height": 830
       }
     ]
   }
