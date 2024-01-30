@@ -13,6 +13,10 @@ async function greet() {
   }
 }
 
+function pieceTheme (piece: string) {
+  return './assets/chessPieces/' + piece + '.svg'
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   // console.log(Chessboard);
   // console.log($);
@@ -21,7 +25,8 @@ window.addEventListener("DOMContentLoaded", () => {
     moveSpeed: 'slow',
     snapbackSpeed: 500,
     snapSpeed: 100,
-    position: 'start'
+    position: 'start',
+    pieceTheme: pieceTheme,
   }
   var board = Chessboard("board", config);
   $("#startBtn").on("click", board.start);
