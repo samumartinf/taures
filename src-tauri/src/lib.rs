@@ -14,7 +14,7 @@ const COL: u8 = 1u8;
 
 pub struct Game {
     white_turn: bool,
-    moves_done: Vec<u32>,
+    moves_done: Vec<String>,
     board: Board,
     game_done: bool,
     castling_options: Vec<char>,
@@ -24,9 +24,13 @@ pub struct Game {
 }
 
 pub trait ChessGame {
+    fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool;
     fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool;
     fn get_fen(&self) -> String;
     fn set_from_fen(&mut self, fen: String);
+    fn get_fen_simple(&self) -> String;
+    fn restart(&self);
+    fn undo_move(&mut self);
 }
 
 impl Game {
@@ -47,6 +51,35 @@ impl Game {
 }
 
 impl ChessGame for Game {
+    fn undo_move(&mut self) {
+        if self.moves_done.len() == 0 {
+            return;
+        }
+        let last_move = self.moves_done.pop().unwrap();
+        self.set_from_fen(last_move);
+    }
+
+    fn restart(&self) {
+        let mut board = Board::init();
+        board.update_hashmap();
+        Game {
+            white_turn: true,
+            moves_done: vec![],
+            board,
+            game_done: false,
+            castling_options: vec!['K', 'Q', 'k', 'q'],
+            en_passant: String::from("-"),
+            half_move_clock: 0i32,
+            full_move_number: 1i32,
+        };
+    }
+
+    fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool {
+        let initial_position_byte = position_helper::letter_to_position_byte(initial_position);
+        let final_position_byte = position_helper::letter_to_position_byte(final_position);
+        self.play_move(initial_position_byte, final_position_byte)
+    }
+
     fn set_from_fen(&mut self, fen: String) {
         // Reset the board
         self.board.state = [0u8; 64];
@@ -115,30 +148,7 @@ impl ChessGame for Game {
     }
 
     fn get_fen(&self) -> String {
-        let mut fen_string = "".to_string();
-        let mut empty_count = 0;
-
-        // Iterate through the board
-        for i in 0..64 {
-            let piece = self.board.state[i];
-            if piece != 0 {
-                if empty_count != 0 {
-                    fen_string.push_str(&empty_count.to_string());
-                }
-                empty_count = 0;
-                fen_string.push_str(&Piece::init_from_binary(piece).fen_repr());
-            }
-            else {
-                empty_count += 1;
-            }
-            if (i+1) % 8 == 0 && i != 63 {
-                if empty_count != 0 {
-                    fen_string.push_str(&empty_count.to_string());
-                }
-                fen_string.push_str("/");
-                empty_count = 0;
-            }
-        }
+        let mut fen_string = self.get_fen_simple();
 
         // Append the turn
         if self.white_turn {
@@ -164,6 +174,33 @@ impl ChessGame for Game {
         // Append the full move number
         fen_string.push_str(&self.full_move_number.to_string());
 
+        return fen_string;
+    }
+
+    fn get_fen_simple(&self) -> String {
+        let mut fen_string = "".to_string();
+        let mut empty_count = 0;
+
+        // Iterate through the board
+        for i in 0..64 {
+            let piece = self.board.state[i];
+            if piece != 0 {
+                if empty_count != 0 {
+                    fen_string.push_str(&empty_count.to_string());
+                }
+                empty_count = 0;
+                fen_string.push_str(&Piece::init_from_binary(piece).fen_repr());
+            } else {
+                empty_count += 1;
+            }
+            if (i + 1) % 8 == 0 && i != 63 {
+                if empty_count != 0 {
+                    fen_string.push_str(&empty_count.to_string());
+                }
+                fen_string.push_str("/");
+                empty_count = 0;
+            }
+        }
 
         return fen_string;
     }
@@ -174,6 +211,13 @@ impl ChessGame for Game {
 
         if let Some(piece_bits) = piece_opt {
             let piece = Piece::init_from_binary(*piece_bits);
+
+            // Check if turn is correct
+            if piece.is_white != self.white_turn {
+                println!("It is not your turn!");
+                return false;
+            }
+
             let possible_moves = piece.possible_moves(initial_position, &self.board);
             if possible_moves.contains(&final_position) {
                 // Take piece
@@ -204,6 +248,8 @@ impl ChessGame for Game {
                 } else {
                     self.half_move_clock += 1;
                 }
+
+                self.moves_done.push(self.get_fen());
                 return true;
             } else {
                 println!("This move is not valid");
@@ -645,7 +691,6 @@ impl Board {
             }
         }
     }
-
 }
 
 pub mod position_helper {

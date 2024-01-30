@@ -7,7 +7,7 @@
     "withGlobalTauri": true
   },
   "package": {
-    "productName": "taures",
+    "productName": "tauress",
     "version": "0.0.1"
   },
   "tauri": {
