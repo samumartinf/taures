@@ -4,6 +4,11 @@ declare var Chessboard: any; // for chessboard.js
 let greetInputEl: HTMLInputElement | null;
 let greetMsgEl: HTMLElement | null;
 
+// all paths start from the root of the project (i.e. folder with index.html)
+function pieceTheme(piece: string) {
+  return 'src/assets/chessPieces/' + piece + '.svg';
+}
+
 async function greet() {
   if (greetMsgEl && greetInputEl) {
     // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -11,10 +16,6 @@ async function greet() {
       name: greetInputEl.value,
     });
   }
-}
-
-function pieceTheme (piece: string) {
-  return './assets/chessPieces/' + piece + '.svg'
 }
 
 window.addEventListener("DOMContentLoaded", () => {
