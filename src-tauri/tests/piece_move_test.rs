@@ -242,3 +242,20 @@ fn test_validate_position_in_board() {
     let valid_position = position_helper::is_position_valid(final_position, &board, true);
     assert_eq!(valid_position, false);
 }
+
+#[test]
+fn test_fen_on_start() {
+    let fen_string = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string();
+    let game = Game::init();
+    let fen = game.get_fen();
+    assert_eq!(fen, fen_string);
+}
+
+#[test]
+fn test_update_from_fen() {
+    let fen_after_e4_move = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".to_string();
+    let mut game = Game::init();
+    game.set_from_fen(fen_after_e4_move.clone());
+    let fen2 = game.get_fen();
+    assert_eq!(fen2, fen_after_e4_move);
+}

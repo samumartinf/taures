@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io, vec};
+use std::{collections::HashMap, vec};
 
 const PIECE_BIT: u8 = 128u8;
 const WHITE_BIT: u8 = 64u8;
@@ -17,11 +17,16 @@ pub struct Game {
     moves_done: Vec<u32>,
     board: Board,
     game_done: bool,
+    castling_options: Vec<char>,
+    en_passant: String,
+    half_move_clock: i32,
+    full_move_number: i32,
 }
 
 pub trait ChessGame {
-    fn play(&mut self);
     fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool;
+    fn get_fen(&self) -> String;
+    fn set_from_fen(&mut self, fen: String);
 }
 
 impl Game {
@@ -33,50 +38,139 @@ impl Game {
             moves_done: vec![],
             board,
             game_done: false,
+            castling_options: vec!['K', 'Q', 'k', 'q'],
+            en_passant: String::from("-"),
+            half_move_clock: 0i32,
+            full_move_number: 1i32,
         }
     }
 }
 
 impl ChessGame for Game {
-    fn play(&mut self) {
-        while !self.game_done {
-            let mut i_position_string = String::new();
-            let mut f_position_string = String::new();
+    fn set_from_fen(&mut self, fen: String) {
+        // Reset the board
+        self.board.state = [0u8; 64];
 
-            self.board.show();
+        // Split the fen
+        let mut fen_split = fen.split(" ");
+        let board_state = fen_split.next().unwrap();
+        let turn = fen_split.next().unwrap();
+        let castling_options = fen_split.next().unwrap();
+        let en_passant = fen_split.next().unwrap();
+        let half_move_clock = fen_split.next().unwrap();
+        let full_move_number = fen_split.next().unwrap();
 
-            if self.white_turn {
-                println!("WHITE TURN");
-            } else {
-                println!("BLACK TURN");
+        // Set the board state
+        let mut board_state_index = 0;
+        for c in board_state.chars() {
+            if c == '/' {
+                continue;
             }
-
-            println!("Piece initial pos: ");
-            io::stdin()
-                .read_line(&mut i_position_string)
-                .expect("Failed to read line");
-
-            i_position_string = i_position_string.trim().to_string();
-            let i_position = position_helper::letter_to_position_byte(i_position_string);
-
-            println!("Move: ");
-            io::stdin()
-                .read_line(&mut f_position_string)
-                .expect("Failed to read line");
-
-            f_position_string = f_position_string.trim().to_string();
-            let f_position = position_helper::letter_to_position_byte(f_position_string);
-            let move_was_valid = self.play_move(i_position, f_position);
-
-            //End of turn
-            if move_was_valid {
-                self.white_turn = !self.white_turn;
+            if c.is_numeric() {
+                let num = c.to_digit(10).unwrap();
+                board_state_index += num;
+            } else {
+                // Set the piece
+                let mut piece = PIECE_BIT;
+                if c.is_uppercase() {
+                    piece += WHITE_BIT;
+                }
+                match c {
+                    'p' | 'P' => piece += PAWN_BIT,
+                    'r' | 'R' => piece += ROOK,
+                    'n' | 'N' => piece += KNIGHT,
+                    'b' | 'B' => piece += BISHOP,
+                    'q' | 'Q' => piece += QUEEN,
+                    'k' | 'K' => piece += KING,
+                    _ => panic!("This piece does not exist!"),
+                }
+                let index: usize = board_state_index.try_into().unwrap();
+                self.board.state[index] = piece;
+                board_state_index += 1;
             }
         }
+        self.board.update_hashmap();
+
+        // Set the turn
+        if turn == "w" {
+            self.white_turn = true;
+        } else {
+            self.white_turn = false;
+        }
+
+        // Set the castling options
+        self.castling_options = vec![];
+        for c in castling_options.chars() {
+            self.castling_options.push(c);
+        }
+
+        // Set the en passant
+        self.en_passant = en_passant.to_string();
+
+        // Set the half move clock
+        self.half_move_clock = half_move_clock.parse::<i32>().unwrap();
+
+        // Set the full move number
+        self.full_move_number = full_move_number.parse::<i32>().unwrap();
+    }
+
+    fn get_fen(&self) -> String {
+        let mut fen_string = "".to_string();
+        let mut empty_count = 0;
+
+        // Iterate through the board
+        for i in 0..64 {
+            let piece = self.board.state[i];
+            if piece != 0 {
+                if empty_count != 0 {
+                    fen_string.push_str(&empty_count.to_string());
+                }
+                empty_count = 0;
+                fen_string.push_str(&Piece::init_from_binary(piece).fen_repr());
+            }
+            else {
+                empty_count += 1;
+            }
+            if (i+1) % 8 == 0 && i != 63 {
+                if empty_count != 0 {
+                    fen_string.push_str(&empty_count.to_string());
+                }
+                fen_string.push_str("/");
+                empty_count = 0;
+            }
+        }
+
+        // Append the turn
+        if self.white_turn {
+            fen_string.push_str(" w ");
+        } else {
+            fen_string.push_str(" b ");
+        }
+
+        // Append the castling options
+        for option in &self.castling_options {
+            fen_string.push_str(&option.to_string());
+        }
+        fen_string.push_str(" ");
+
+        // Append the en passant
+        fen_string.push_str(&self.en_passant);
+        fen_string.push_str(" ");
+
+        // Append the half move clock
+        fen_string.push_str(&self.half_move_clock.to_string());
+        fen_string.push_str(" ");
+
+        // Append the full move number
+        fen_string.push_str(&self.full_move_number.to_string());
+
+
+        return fen_string;
     }
 
     fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool {
         let piece_opt = self.board.pieces.get(&initial_position);
+        let mut pawn_taken = false;
 
         if let Some(piece_bits) = piece_opt {
             let piece = Piece::init_from_binary(*piece_bits);
@@ -88,9 +182,13 @@ impl ChessGame for Game {
                 let t_piece = taken_piece.unwrap_or(&0u8);
                 if *t_piece != 0 {
                     //TODO: store the piece taken and give rewards
-                    if Piece::init_from_binary(*taken_piece.unwrap()).class == PieceType::King {
+                    let taken_p = Piece::init_from_binary(*t_piece);
+                    if taken_p.class == PieceType::King {
                         self.game_done = true;
                         println!("GG wp");
+                    }
+                    if taken_p.class == PieceType::Pawn {
+                        pawn_taken = true;
                     }
                 }
                 // update the board
@@ -98,6 +196,14 @@ impl ChessGame for Game {
                 self.board.state[position_helper::position_byte_to_index(initial_position)] = 0;
 
                 self.board.update_hashmap();
+                self.white_turn = !self.white_turn;
+
+                //update the half move clock
+                if piece.class == PieceType::Pawn || pawn_taken {
+                    self.half_move_clock = 0;
+                } else {
+                    self.half_move_clock += 1;
+                }
                 return true;
             } else {
                 println!("This move is not valid");
@@ -255,7 +361,6 @@ impl Piece {
 
         queen_positions.append(&mut bishop_positions);
         return queen_positions.to_vec();
-
     }
 
     fn bishop_moves(self, position: u8, board: Board) -> Vec<u8> {
@@ -292,10 +397,10 @@ impl Piece {
                         let position_to_check = position - i + ROW * i;
                         let piece_retrieved = board.pieces.get(&position_to_check);
 
-                        blocked_down_left= piece_retrieved.is_some();
+                        blocked_down_left = piece_retrieved.is_some();
                         moves.push(position - i + ROW * i);
                     }
-                    if i <= row && !blocked_up_left{
+                    if i <= row && !blocked_up_left {
                         let position_to_check = position - i - ROW * i;
                         let piece_retrieved = board.pieces.get(&position_to_check);
 
@@ -430,6 +535,22 @@ impl BasicPiece for Piece {
         return_string.push_str(&piece_string);
         return_string
     }
+
+    fn fen_repr(&self) -> String {
+        let mut piece_string = match self.class {
+            PieceType::Pawn => "P",
+            PieceType::King => "K",
+            PieceType::Queen => "Q",
+            PieceType::Bishop => "B",
+            PieceType::Knight => "N",
+            PieceType::Rook => "R",
+        }
+        .to_string();
+        if self.is_white == false {
+            piece_string = piece_string.to_lowercase();
+        }
+        return piece_string;
+    }
 }
 
 pub trait BasicPiece {
@@ -437,6 +558,7 @@ pub trait BasicPiece {
     fn init_from_binary(binary: u8) -> Self;
     fn text_repr(&self) -> String;
     fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8>;
+    fn fen_repr(&self) -> String;
 }
 
 #[derive(Debug, Clone)]
@@ -523,6 +645,7 @@ impl Board {
             }
         }
     }
+
 }
 
 pub mod position_helper {
@@ -629,6 +752,5 @@ pub mod cherris_engine {
 
     pub struct Engine {
         game: Game,
-        
     }
 }
