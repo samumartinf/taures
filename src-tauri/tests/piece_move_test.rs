@@ -259,3 +259,42 @@ fn test_update_from_fen() {
     let fen2 = game.get_fen();
     assert_eq!(fen2, fen_after_e4_move);
 }
+
+#[test]
+fn test_update_from_fen2() {
+    let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
+    let mut game = Game::init();
+    game.set_from_fen(fen.clone());
+    let fen2 = game.get_fen();
+    assert_eq!(fen2, fen);
+}
+
+#[test]
+fn test_take_with_black_pawn() {
+    /*
+      |----|----|----|----|----|----|----|----|
+    8 | bR | bN | bB | bQ | bK | bB | bN | bR |
+      |----|----|----|----|----|----|----|----|
+    7 | bP | bP |    |    |    | bP | bP | bP |
+      |----|----|----|----|----|----|----|----|
+    6 |    |    | bP |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    5 |    |    |    | bP | wN |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    4 |    |    |    |    | wP |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    3 |    |    | wP |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    2 | wP | wP |    | wP |    | wP | wP | wP |
+      |----|----|----|----|----|----|----|----|
+    1 | wR | wN | wB | wQ | wK | wB |    | wR |
+      |----|----|----|----|----|----|----|----|
+        a    b    c    d    e    f    g    h  
+     */
+    let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
+    let mut game = Game::init();
+    game.set_from_fen(fen.clone());
+    game.show();
+    let allowed_move = game.play_move_from_string("d5".to_string(), "e4".to_string());
+    assert_eq!(allowed_move, true);
+}

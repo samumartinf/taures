@@ -29,7 +29,7 @@ pub trait ChessGame {
     fn get_fen(&self) -> String;
     fn set_from_fen(&mut self, fen: String);
     fn get_fen_simple(&self) -> String;
-    fn restart(&self);
+    fn restart(&mut self);
     fn undo_move(&mut self);
 }
 
@@ -48,6 +48,10 @@ impl Game {
             full_move_number: 1i32,
         }
     }
+
+    pub fn show(&self) {
+        self.board.show();
+    }
 }
 
 impl ChessGame for Game {
@@ -59,19 +63,17 @@ impl ChessGame for Game {
         self.set_from_fen(last_move);
     }
 
-    fn restart(&self) {
+    fn restart(&mut self) {
         let mut board = Board::init();
         board.update_hashmap();
-        Game {
-            white_turn: true,
-            moves_done: vec![],
-            board,
-            game_done: false,
-            castling_options: vec!['K', 'Q', 'k', 'q'],
-            en_passant: String::from("-"),
-            half_move_clock: 0i32,
-            full_move_number: 1i32,
-        };
+        self.white_turn = true;
+        self.moves_done = vec![];
+        self.board = Board::init();
+        self.game_done = false;
+        self.castling_options = vec!['K', 'Q', 'k', 'q'];
+        self.en_passant = String::from("-");
+        self.half_move_clock = 0i32;
+        self.full_move_number = 1i32;
     }
 
     fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool {
@@ -299,6 +301,17 @@ impl Piece {
         if self.is_white {
             let diagonal_right = position - ROW + COL;
             let diagonal_left = position - ROW - COL;
+            if board.pieces.get(&diagonal_left.clone()).is_some() {
+                possible_positions.push(diagonal_left.clone());
+            }
+            if board.pieces.get(&diagonal_right.clone()).is_some() {
+                possible_positions.push(diagonal_right.clone());
+            }
+        }
+        // Black paws move in the positive direction
+        else {
+            let diagonal_right = position + ROW + COL;
+            let diagonal_left = position + ROW - COL;
             if board.pieces.get(&diagonal_left.clone()).is_some() {
                 possible_positions.push(diagonal_left.clone());
             }
@@ -570,11 +583,11 @@ impl BasicPiece for Piece {
         }
 
         let piece_string = match self.class {
-            PieceType::Pawn => "p".to_string(),
+            PieceType::Pawn => "P".to_string(),
             PieceType::King => "K".to_string(),
             PieceType::Queen => "Q".to_string(),
             PieceType::Bishop => "B".to_string(),
-            PieceType::Knight => "k".to_string(),
+            PieceType::Knight => "N".to_string(),
             PieceType::Rook => "R".to_string(),
         };
         return_string.push_str(&color_string);
@@ -614,7 +627,7 @@ pub struct Board {
 }
 
 impl Board {
-    fn show(&self) {
+    pub fn show(&self) {
         println!("  |----|----|----|----|----|----|----|----|");
         let mut row_count = 8;
         for row in 0..8 {

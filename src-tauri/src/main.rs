@@ -25,7 +25,7 @@ fn play_move(source: &str, target: &str) -> bool {
 
 #[tauri::command]
 fn restart_game() {
-    let game = GAME.lock().unwrap();
+    let mut game = GAME.lock().unwrap();
     game.restart();
 }
 
@@ -41,6 +41,12 @@ fn get_fen() -> String {
     return game.get_fen();
 }
 
+#[tauri::command]
+fn get_fen_simple() -> String {
+    let game = GAME.lock().unwrap();
+    return game.get_fen_simple();
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     let mut board: cherris::Board = cherris::Board::init();
@@ -52,7 +58,8 @@ fn main() -> Result<()> {
             play_move,
             restart_game,
             undo_move,
-            get_fen
+            get_fen,
+            get_fen_simple,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

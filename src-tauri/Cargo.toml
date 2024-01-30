@@ -3,7 +3,7 @@ name = "cherris"
 version = "0.0.0"
 description = "A Tauri App"
 authors = ["samumartinfrias@gmail.com"]
-license = "MIT"
+license = "Apache-2.0 OR MIT"
 repository = ""
 edition = "2021"
 

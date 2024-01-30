@@ -20,7 +20,7 @@ var board = Chessboard("board", config);
 // update the board position after the piece snap
 // for castling, en passant, pawn promotion
 async function onSnapEnd () {
-  board.position(await invoke("get_fen"));
+  board.position(await invoke("get_fen_simple"));
 }
 
 // all paths start from the root of the project (i.e. folder with index.html)
@@ -28,35 +28,35 @@ function pieceTheme(piece: string) {
   return 'src/assets/chessPieces/' + piece + '.svg';
 }
 
-async function greet() {
-  if (greetMsgEl && greetInputEl) {
-    // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-    greetMsgEl.textContent = await invoke("greet", {
-      name: greetInputEl.value,
-    });
-  }
-}
-
 async function restart() {
   console.log('Restarting game...');  
   await invoke("restart_game");
-  board.start();
-}
-
-async function undoMove() {
-  await invoke("undo_move");
-  var fen: string = await invoke("get_fen");
+  var fen = await invoke("get_fen_simple");
+  console.log('FEN from engine: ' + fen);
   board.position(fen);
 }
 
+async function undoMove() {
+  console.log("Undo move...");
+  await invoke("undo_move");
+  var fen: string = await invoke("get_fen_simple");
+  console.log('FEN from engine: ' + fen);
+  board.position(fen);
+}
+
+function getFen() {
+  console.log("Board FEN: " + board.fen());
+}
+
 async function onDrop(source: string, target: string, piece: string, newPos, oldPos, orientation) {
+
+  var fen: string = await invoke("get_fen_simple");
   console.log('Source: ' + source);
   console.log('Target: ' + target);
   console.log('Piece: ' + piece);
   console.log('New position: ' + Chessboard.objToFen(newPos));
   console.log('Old position: ' + Chessboard.objToFen(oldPos));
-  console.log('Orientation: ' + orientation);
-  console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+  console.log('FEN from engine: ' + fen);
 
   // Check if move is legal
   var move: boolean = await invoke("play_move", {
@@ -72,15 +72,7 @@ async function onDrop(source: string, target: string, piece: string, newPos, old
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-
   $("#startBtn").on("click", restart);
-  // $("#clearBtn").on("click", board.clear);
   $('#undoBtn').on('click', undoMove);
-
-  greetInputEl = document.querySelector("#greet-input");
-  greetMsgEl = document.querySelector("#greet-msg");
-  document.querySelector("#greet-form")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    greet();
-  });
+  $('#getFenBtn').on('click', getFen);
 });
