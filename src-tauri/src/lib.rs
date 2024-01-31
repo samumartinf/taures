@@ -14,7 +14,7 @@ const COL: u8 = 1u8;
 
 pub struct Game {
     white_turn: bool,
-    moves_done: Vec<String>,
+    previous_fen_positions: Vec<String>,
     board: Board,
     game_done: bool,
     castling_options: Vec<char>,
@@ -36,10 +36,10 @@ pub trait ChessGame {
 impl Game {
     pub fn init() -> Game {
         let mut board = Board::init();
-        board.update_hashmap();
+        board.set_start_position();
         Game {
             white_turn: true,
-            moves_done: vec![],
+            previous_fen_positions: vec![],
             board,
             game_done: false,
             castling_options: vec!['K', 'Q', 'k', 'q'],
@@ -56,10 +56,10 @@ impl Game {
 
 impl ChessGame for Game {
     fn undo_move(&mut self) {
-        if self.moves_done.len() == 0 {
+        if self.previous_fen_positions.len() == 0 {
             return;
         }
-        let last_move = self.moves_done.pop().unwrap();
+        let last_move = self.previous_fen_positions.pop().unwrap();
         self.set_from_fen(last_move);
     }
 
@@ -67,7 +67,7 @@ impl ChessGame for Game {
         let mut board = Board::init();
         board.update_hashmap();
         self.white_turn = true;
-        self.moves_done = vec![];
+        self.previous_fen_positions = vec![];
         self.board = Board::init();
         self.game_done = false;
         self.castling_options = vec!['K', 'Q', 'k', 'q'];
@@ -222,6 +222,9 @@ impl ChessGame for Game {
 
             let possible_moves = piece.possible_moves(initial_position, &self.board);
             if possible_moves.contains(&final_position) {
+                // Update the previous positions vector
+                self.previous_fen_positions.push(self.get_fen());
+
                 // Take piece
                 let final_position_index = position_helper::position_byte_to_index(final_position);
                 let taken_piece = self.board.state.get(final_position_index as usize);
@@ -251,7 +254,6 @@ impl ChessGame for Game {
                     self.half_move_clock += 1;
                 }
 
-                self.moves_done.push(self.get_fen());
                 return true;
             } else {
                 println!("This move is not valid");
@@ -322,7 +324,7 @@ impl Piece {
 
         let mut final_positions = Vec::new();
         for pos in possible_positions {
-            if position_helper::validate_position(pos) {
+            if position_helper::is_position_valid(pos, &board, self.is_white) {
                 final_positions.push(pos);
             }
         }
@@ -330,7 +332,7 @@ impl Piece {
         final_positions
     }
 
-    fn king_moves(self, position: u8, _board: Board) -> Vec<u8> {
+    fn king_moves(self, position: u8, board: Board) -> Vec<u8> {
         let possible_positions = vec![
             position + COL,
             position - COL,
@@ -344,7 +346,7 @@ impl Piece {
 
         let mut final_positions: Vec<u8> = Vec::new();
         for pos in possible_positions {
-            if position_helper::validate_position(pos) {
+            if position_helper::is_position_valid(pos, &board, self.is_white) {
                 final_positions.push(pos);
             }
         }
@@ -508,7 +510,7 @@ impl Piece {
 
         let mut final_positions = Vec::new();
         for pos in possible_positions {
-            if position_helper::validate_position(pos) {
+            if position_helper::is_position_valid(pos, &board, self.is_white) {
                 final_positions.push(pos);
             }
         }
@@ -656,44 +658,52 @@ impl Board {
 
     pub fn init() -> Self {
         let mut state = [0u8; 64];
-        let pieces: HashMap<u8, u8> = HashMap::new();
+        let mut pieces: HashMap<u8, u8> = HashMap::new();
+        Self { pieces, state }
+    }
 
+    pub fn set_start_position(&mut self) {
         // black pawns
         let mut first_bpawn = PIECE_BIT + PAWN_BIT;
         for i in 0..8 {
-            state[i + 8] = first_bpawn;
+            self.state[i + 8] = first_bpawn;
             first_bpawn += 1;
         }
 
         // white pawns
         let mut first_wpawn = PIECE_BIT + PAWN_BIT + WHITE_BIT;
         for i in 0..8 {
-            state[i + 48] = first_wpawn;
+            self.state[i + 48] = first_wpawn;
             first_wpawn += 1;
         }
 
         // white large pieces
-        state[56] = ROOK + PIECE_BIT + WHITE_BIT;
-        state[1 + 56] = KNIGHT + PIECE_BIT + WHITE_BIT;
-        state[2 + 56] = BISHOP + PIECE_BIT + WHITE_BIT;
-        state[3 + 56] = QUEEN + PIECE_BIT + WHITE_BIT;
-        state[4 + 56] = KING + PIECE_BIT + WHITE_BIT;
-        state[5 + 56] = BISHOP + PIECE_BIT + WHITE_BIT + 1;
-        state[6 + 56] = KNIGHT + PIECE_BIT + WHITE_BIT + 1;
-        state[7 + 56] = ROOK + PIECE_BIT + WHITE_BIT + 1;
+        self.state[56] = ROOK + PIECE_BIT + WHITE_BIT;
+        self.state[1 + 56] = KNIGHT + PIECE_BIT + WHITE_BIT;
+        self.state[2 + 56] = BISHOP + PIECE_BIT + WHITE_BIT;
+        self.state[3 + 56] = QUEEN + PIECE_BIT + WHITE_BIT;
+        self.state[4 + 56] = KING + PIECE_BIT + WHITE_BIT;
+        self.state[5 + 56] = BISHOP + PIECE_BIT + WHITE_BIT + 1;
+        self.state[6 + 56] = KNIGHT + PIECE_BIT + WHITE_BIT + 1;
+        self.state[7 + 56] = ROOK + PIECE_BIT + WHITE_BIT + 1;
 
         // black large pieces
-        state[0] = ROOK + PIECE_BIT;
-        state[1] = KNIGHT + PIECE_BIT;
-        state[2] = BISHOP + PIECE_BIT;
-        state[3] = QUEEN + PIECE_BIT;
-        state[4] = KING + PIECE_BIT;
-        state[5] = BISHOP + PIECE_BIT + 1;
-        state[6] = KNIGHT + PIECE_BIT + 1;
-        state[7] = ROOK + PIECE_BIT + 1;
+        self.state[0] = ROOK + PIECE_BIT;
+        self.state[1] = KNIGHT + PIECE_BIT;
+        self.state[2] = BISHOP + PIECE_BIT;
+        self.state[3] = QUEEN + PIECE_BIT;
+        self.state[4] = KING + PIECE_BIT;
+        self.state[5] = BISHOP + PIECE_BIT + 1;
+        self.state[6] = KNIGHT + PIECE_BIT + 1;
+        self.state[7] = ROOK + PIECE_BIT + 1;
 
-        // Populate hashmap -> done in the update_hashmap
-        Self { pieces, state }
+        // Populate hashmap
+         for index in 0..self.state.len() {
+            if self.state[index] != 0 {
+                let pos_byte = position_helper::index_to_position_byte(index);
+                self.pieces.insert(pos_byte, self.state[index]);
+            }
+        }
     }
 
     pub fn update_hashmap(&mut self) {
@@ -762,7 +772,7 @@ pub mod position_helper {
         col_selector & byte
     }
 
-    pub fn validate_position(position: u8) -> bool {
+    fn validate_position(position: u8) -> bool {
         let index_position = position_byte_to_index(position);
         if index_position >= 64 {
             return false;

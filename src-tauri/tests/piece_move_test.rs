@@ -31,16 +31,16 @@ fn test_letters_to_index() {
 }
 
 #[test]
-fn test_state_pieces_parity() {
+fn test_start_position_array_to_hashmap() {
     let mut board = Board::init();
-    board.update_hashmap();
+    board.set_start_position();
     let piece = *board.pieces.get(&0b00000011).unwrap();
     assert_eq!(piece, PIECE_BIT + QUEEN); // Black queen should be on index 3 after init()
 }
 
 #[test]
 fn test_pawn_initial_move_emtpy_board() {
-    let board = Board::init();
+    let mut board = Board::init();
     let pos_string: String = String::from("a2");
     let position = position_helper::letter_to_position_byte(pos_string);
     let white_pawn = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + PAWN_BIT);
@@ -54,7 +54,7 @@ fn test_pawn_initial_move_emtpy_board() {
 
 #[test]
 fn test_king_moves_empty_board() {
-    let board = Board::init();
+    let mut board = Board::init();
     let pos_string: String = String::from("a1");
     let position = position_helper::letter_to_position_byte(pos_string);
     let king = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + KING);
@@ -73,7 +73,7 @@ fn test_king_moves_empty_board() {
 
 #[test]
 fn test_rook_moves_empty_board() {
-    let board = Board::init();
+    let mut board = Board::init();
     let pos_string: String = String::from("d4");
     let position = position_helper::letter_to_position_byte(pos_string.clone());
     let rook = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + ROOK);
@@ -100,7 +100,7 @@ fn test_rook_moves_empty_board() {
 #[test]
 fn test_rook_moves_starting_board() {
     let mut board = Board::init();
-    board.update_hashmap();
+    board.set_start_position();
     let pos_string: String = String::from("a1");
     let position = position_helper::letter_to_position_byte(pos_string.clone());
     let rook = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + ROOK);
@@ -145,7 +145,7 @@ fn test_bishop_moves_empty_board() {
 #[test]
 fn test_bishop_moves_starting_board() {
     let mut board = Board::init();
-    board.update_hashmap();
+    board.set_start_position();
     let pos_string: String = String::from("c1");
     let position = position_helper::letter_to_position_byte(pos_string.clone());
     let bishop = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + BISHOP);
@@ -165,7 +165,7 @@ fn test_bishop_moves_starting_board() {
 #[test]
 fn test_queen_moves_starting_board() {
     let mut board = Board::init();
-    board.update_hashmap();
+    board.set_start_position();
     let pos_string: String = String::from("c1");
     let position = position_helper::letter_to_position_byte(pos_string.clone());
     let queen = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + QUEEN);
@@ -236,7 +236,7 @@ fn test_knight_moves_empty_board() {
 #[test]
 fn test_validate_position_in_board() {
     let mut board = Board::init();
-    board.update_hashmap();
+    board.set_start_position();
     let final_string: String = String::from("a1");
     let final_position = position_helper::letter_to_position_byte(final_string.clone());
     let valid_position = position_helper::is_position_valid(final_position, &board, true);
@@ -294,7 +294,18 @@ fn test_take_with_black_pawn() {
     let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
     let mut game = Game::init();
     game.set_from_fen(fen.clone());
-    game.show();
     let allowed_move = game.play_move_from_string("d5".to_string(), "e4".to_string());
     assert_eq!(allowed_move, true);
+}
+
+#[test]
+fn test_undo_move() {
+    let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
+    let mut game = Game::init();
+    game.set_from_fen(fen.clone());
+    let allowed_move = game.play_move_from_string("d5".to_string(), "e4".to_string());
+    assert_eq!(allowed_move, true);
+    game.undo_move();
+    let fen2 = game.get_fen();
+    assert_eq!(fen2, fen);
 }
