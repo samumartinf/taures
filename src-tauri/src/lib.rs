@@ -65,10 +65,10 @@ impl ChessGame for Game {
 
     fn restart(&mut self) {
         let mut board = Board::init();
-        board.update_hashmap();
+        board.set_start_position();
         self.white_turn = true;
         self.previous_fen_positions = vec![];
-        self.board = Board::init();
+        self.board = board;
         self.game_done = false;
         self.castling_options = vec!['K', 'Q', 'k', 'q'];
         self.en_passant = String::from("-");
