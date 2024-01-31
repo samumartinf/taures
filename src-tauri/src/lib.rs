@@ -215,7 +215,7 @@ impl ChessGame for Game {
             let piece = Piece::init_from_binary(*piece_bits);
 
             // Check if turn is correct
-            if piece.is_white != self.white_turn || !piece.is_white == self.white_turn{
+            if piece.is_white != self.white_turn || !piece.is_white == self.white_turn {
                 println!("It is not your turn!");
                 return false;
             }
@@ -286,16 +286,22 @@ impl Piece {
 
         // White pawns move in the negative direction
         if self.is_white {
-            possible_positions.push(position - 16);
+            if board.pieces.get(&(position - 16)).is_none() {
+                possible_positions.push(position - 16);
+            }
 
-            if position_helper::get_row(position) == 6 {
+            if position_helper::get_row(position) == 6 && board.pieces.get(&(position - 32)).is_none(){
                 possible_positions.push(position - 32);
             }
         }
         // Black paws move in the positive direction
         else {
-            possible_positions.push(position + 16);
-            if position_helper::get_row(position) == 1 {
+            if board.pieces.get(&(position + 16)).is_none() {
+                possible_positions.push(position + 16);
+            }
+            if position_helper::get_row(position) == 1
+                && board.pieces.get(&(position + 32)).is_none()
+            {
                 possible_positions.push(position + 32);
             }
         }
@@ -698,7 +704,7 @@ impl Board {
         self.state[7] = ROOK + PIECE_BIT + 1;
 
         // Populate hashmap
-         for index in 0..self.state.len() {
+        for index in 0..self.state.len() {
             if self.state[index] != 0 {
                 let pos_byte = position_helper::index_to_position_byte(index);
                 self.pieces.insert(pos_byte, self.state[index]);

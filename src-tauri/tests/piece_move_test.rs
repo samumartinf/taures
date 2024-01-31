@@ -53,6 +53,15 @@ fn test_pawn_initial_move_emtpy_board() {
 }
 
 #[test]
+fn test_pawn_cannot_take_in_front() {
+    let fen_string = "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 1".to_string();
+    let mut game = Game::init();
+    game.set_from_fen(fen_string);
+    let allowed_move = game.play_move_from_string("e4".to_string(), "e5".to_string());
+    assert_eq!(allowed_move, false);
+}
+
+#[test]
 fn test_king_moves_empty_board() {
     let mut board = Board::init();
     let pos_string: String = String::from("a1");
