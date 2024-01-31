@@ -28,6 +28,7 @@ function pieceTheme(piece: string) {
   return 'src/assets/chessPieces/' + piece + '.svg';
 }
 
+// TODO: fix bug here
 async function restart() {
   console.log('Restarting game...');  
   await invoke("restart_game");

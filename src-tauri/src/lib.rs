@@ -215,7 +215,7 @@ impl ChessGame for Game {
             let piece = Piece::init_from_binary(*piece_bits);
 
             // Check if turn is correct
-            if piece.is_white != self.white_turn {
+            if piece.is_white != self.white_turn || !piece.is_white == self.white_turn{
                 println!("It is not your turn!");
                 return false;
             }
