@@ -1,4 +1,4 @@
-use cherris::{self, ChessGame, Game};
+use cherris::{self, ChessDebugInfo, ChessGame, Game};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex};
@@ -36,6 +36,12 @@ fn undo_move() {
 }
 
 #[tauri::command]
+fn get_possible_moves(source: &str) -> Vec<String> {
+    let game = GAME.lock().unwrap();
+    return game.get_allowed_moves(source.to_string());
+}
+
+#[tauri::command]
 fn get_fen() -> String {
     let game = GAME.lock().unwrap();
     return game.get_fen();
@@ -45,6 +51,18 @@ fn get_fen() -> String {
 fn get_fen_simple() -> String {
     let game = GAME.lock().unwrap();
     return game.get_fen_simple();
+}
+
+#[tauri::command]
+fn get_piece_at_square(square: &str) -> String {
+    let game = GAME.lock().unwrap();
+    return game.get_piece_at_square(square.to_string());
+}
+
+#[tauri::command]
+fn get_position_string() {
+    let game = GAME.lock().unwrap();
+    return game.board.show();
 }
 
 fn main() -> Result<()> {
@@ -60,6 +78,9 @@ fn main() -> Result<()> {
             undo_move,
             get_fen,
             get_fen_simple,
+            get_piece_at_square,
+            get_possible_moves,
+            get_position_string,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

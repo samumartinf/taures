@@ -15,7 +15,7 @@ const COL: u8 = 1u8;
 pub struct Game {
     white_turn: bool,
     previous_fen_positions: Vec<String>,
-    board: Board,
+    pub board: Board,
     game_done: bool,
     castling_options: Vec<char>,
     en_passant: String,
@@ -31,6 +31,23 @@ pub trait ChessGame {
     fn get_fen_simple(&self) -> String;
     fn restart(&mut self);
     fn undo_move(&mut self);
+    fn get_allowed_moves(&self, position: String) -> Vec<String>;
+}
+
+pub trait ChessDebugInfo {
+    fn get_piece_at_square(&self, square: String) -> String;
+}
+
+impl ChessDebugInfo for Game {
+    fn get_piece_at_square(&self, square: String) -> String {
+        let position_byte = position_helper::letter_to_position_byte(square);
+        let piece_opt = self.board.pieces.get(&position_byte);
+        if piece_opt.is_none() {
+            return String::from("None");
+        }
+        let piece = Piece::init_from_binary(*piece_opt.unwrap());
+        return piece.fen_repr();
+    }
 }
 
 impl Game {
@@ -55,6 +72,15 @@ impl Game {
 }
 
 impl ChessGame for Game {
+    fn get_allowed_moves(&self, position: String) -> Vec<String> {
+        let position_byte= position_helper::letter_to_position_byte(position);
+        let piece_opt = self.board.pieces.get(&position_byte);
+        if piece_opt.is_none() {
+            return vec![];
+        }
+        let piece = Piece::init_from_binary(*piece_opt.unwrap());
+        return piece.possible_moves(position_byte, &self.board).iter().map(|x| position_helper::position_byte_to_letter(*x)).collect();
+    }
     fn undo_move(&mut self) {
         if self.previous_fen_positions.len() == 0 {
             return;
@@ -83,6 +109,8 @@ impl ChessGame for Game {
     }
 
     fn set_from_fen(&mut self, fen: String) {
+        // Check the size of the fen
+
         // Reset the board
         self.board.state = [0u8; 64];
 
@@ -124,6 +152,12 @@ impl ChessGame for Game {
                 board_state_index += 1;
             }
         }
+
+        // Check if the index reaqched 64
+        if board_state_index != 64 {
+            panic!("The board state is not complete");
+        }
+
         self.board.update_hashmap();
 
         // Set the turn
@@ -265,13 +299,13 @@ impl ChessGame for Game {
 
 #[derive(Debug, Clone)]
 pub struct Piece {
-    binary: u8,
-    is_white: bool,
-    class: PieceType,
+    pub binary: u8,
+    pub is_white: bool,
+    pub class: PieceType,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum PieceType {
+pub enum PieceType {
     Pawn,
     Rook,
     Knight,
@@ -290,7 +324,9 @@ impl Piece {
                 possible_positions.push(position - 16);
             }
 
-            if position_helper::get_row(position) == 6 && board.pieces.get(&(position - 32)).is_none(){
+            if position_helper::get_row(position) == 6
+                && board.pieces.get(&(position - 32)).is_none()
+            {
                 possible_positions.push(position - 32);
             }
         }
@@ -339,18 +375,56 @@ impl Piece {
     }
 
     fn king_moves(self, position: u8, board: Board) -> Vec<u8> {
-        let possible_positions = vec![
-            position + COL,
-            position - COL,
-            position + ROW,
-            position - ROW,
-            position + ROW + COL,
-            position + ROW - COL,
-            position - ROW + COL,
-            position - ROW - COL,
-        ];
+        let mut possible_positions = Vec::<u8>::new();
+        let row = position_helper::get_row(position);
+        let col = position_helper::get_col(position);
 
-        let mut final_positions: Vec<u8> = Vec::new();
+        if col > 0 {
+            if let Some(new_position) = position.checked_sub(COL) {
+                possible_positions.push(new_position);
+            }
+            if let Some(new_position) = position.checked_sub(ROW + COL) {
+                possible_positions.push(new_position);
+            }
+            if let Some(new_position) = position.checked_add(ROW - COL) {
+                possible_positions.push(new_position);
+            }
+        }
+        if col < 7 {
+            if let Some(new_position) = position.checked_add(COL) {
+                possible_positions.push(new_position);
+            }
+            if let Some(new_position) = position.checked_sub(ROW - COL) {
+                possible_positions.push(new_position);
+            }
+            if let Some(new_position) = position.checked_add(ROW + COL) {
+                possible_positions.push(new_position);
+            }
+        }
+        if row > 0 {
+            if let Some(new_position) = position.checked_sub(ROW) {
+                possible_positions.push(new_position);
+            }
+            if let Some(new_position) = position.checked_sub(ROW + COL) {
+                possible_positions.push(new_position);
+            }
+            if let Some(new_position) = position.checked_add(ROW - COL) {
+                possible_positions.push(new_position);
+            }
+        }
+        if row < 7 {
+            if let Some(new_position) = position.checked_add(ROW) {
+                possible_positions.push(new_position);
+            }
+            if let Some(new_position) = position.checked_add(ROW - COL) {
+                possible_positions.push(new_position);
+            }
+            if let Some(new_position) = position.checked_add(ROW + COL) {
+                possible_positions.push(new_position);
+            }
+        }
+
+        let mut final_positions = Vec::<u8>::new();
         for pos in possible_positions {
             if position_helper::is_position_valid(pos, &board, self.is_white) {
                 final_positions.push(pos);
@@ -635,6 +709,7 @@ pub struct Board {
 }
 
 impl Board {
+
     pub fn show(&self) {
         println!("  |----|----|----|----|----|----|----|----|");
         let mut row_count = 8;
@@ -669,50 +744,50 @@ impl Board {
     }
 
     pub fn set_start_position(&mut self) {
-        // black pawns
-        let mut first_bpawn = PIECE_BIT + PAWN_BIT;
-        for i in 0..8 {
-            self.state[i + 8] = first_bpawn;
-            first_bpawn += 1;
-        }
+        // Reset the board
+        self.state = [0u8; 64];
 
-        // white pawns
-        let mut first_wpawn = PIECE_BIT + PAWN_BIT + WHITE_BIT;
-        for i in 0..8 {
-            self.state[i + 48] = first_wpawn;
-            first_wpawn += 1;
-        }
+        let initial_fen = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
 
-        // white large pieces
-        self.state[56] = ROOK + PIECE_BIT + WHITE_BIT;
-        self.state[1 + 56] = KNIGHT + PIECE_BIT + WHITE_BIT;
-        self.state[2 + 56] = BISHOP + PIECE_BIT + WHITE_BIT;
-        self.state[3 + 56] = QUEEN + PIECE_BIT + WHITE_BIT;
-        self.state[4 + 56] = KING + PIECE_BIT + WHITE_BIT;
-        self.state[5 + 56] = BISHOP + PIECE_BIT + WHITE_BIT + 1;
-        self.state[6 + 56] = KNIGHT + PIECE_BIT + WHITE_BIT + 1;
-        self.state[7 + 56] = ROOK + PIECE_BIT + WHITE_BIT + 1;
+        // Split the fen
+        let mut fen_split = initial_fen.split(" ");
+        let board_state = fen_split.next().unwrap();
 
-        // black large pieces
-        self.state[0] = ROOK + PIECE_BIT;
-        self.state[1] = KNIGHT + PIECE_BIT;
-        self.state[2] = BISHOP + PIECE_BIT;
-        self.state[3] = QUEEN + PIECE_BIT;
-        self.state[4] = KING + PIECE_BIT;
-        self.state[5] = BISHOP + PIECE_BIT + 1;
-        self.state[6] = KNIGHT + PIECE_BIT + 1;
-        self.state[7] = ROOK + PIECE_BIT + 1;
-
-        // Populate hashmap
-        for index in 0..self.state.len() {
-            if self.state[index] != 0 {
-                let pos_byte = position_helper::index_to_position_byte(index);
-                self.pieces.insert(pos_byte, self.state[index]);
+        // Set the board state
+        let mut board_state_index = 0;
+        for c in board_state.chars() {
+            if c == '/' {
+                continue;
+            }
+            if c.is_numeric() {
+                let num = c.to_digit(10).unwrap();
+                board_state_index += num;
+            } else {
+                // Set the piece
+                let mut piece = PIECE_BIT;
+                if c.is_uppercase() {
+                    piece += WHITE_BIT;
+                }
+                match c {
+                    'p' | 'P' => piece += PAWN_BIT,
+                    'r' | 'R' => piece += ROOK,
+                    'n' | 'N' => piece += KNIGHT,
+                    'b' | 'B' => piece += BISHOP,
+                    'q' | 'Q' => piece += QUEEN,
+                    'k' | 'K' => piece += KING,
+                    _ => panic!("This piece does not exist!"),
+                }
+                let index: usize = board_state_index.try_into().unwrap();
+                self.state[index] = piece;
+                board_state_index += 1;
             }
         }
+        self.update_hashmap();
     }
 
     pub fn update_hashmap(&mut self) {
+        // TODO: optimise this to avoid memory allocation
+        self.pieces = HashMap::new();
         for index in 0..self.state.len() {
             if self.state[index] != 0 {
                 let pos_byte = position_helper::index_to_position_byte(index);

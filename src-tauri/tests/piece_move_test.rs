@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use cherris::*;
+use std::collections::HashSet;
 const PIECE_BIT: u8 = 128u8;
 const WHITE_BIT: u8 = 64u8;
 const PAWN_BIT: u8 = 8u8;
@@ -178,7 +178,7 @@ fn test_queen_moves_starting_board() {
     let pos_string: String = String::from("c1");
     let position = position_helper::letter_to_position_byte(pos_string.clone());
     let queen = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + QUEEN);
-    let possible_positions: HashSet<String> = queen 
+    let possible_positions: HashSet<String> = queen
         .possible_moves(position, &board)
         .iter()
         .map(|x| position_helper::position_byte_to_letter(*x))
@@ -262,7 +262,8 @@ fn test_fen_on_start() {
 
 #[test]
 fn test_update_from_fen() {
-    let fen_after_e4_move = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".to_string();
+    let fen_after_e4_move =
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".to_string();
     let mut game = Game::init();
     game.set_from_fen(fen_after_e4_move.clone());
     let fen2 = game.get_fen();
@@ -298,7 +299,7 @@ fn test_take_with_black_pawn() {
       |----|----|----|----|----|----|----|----|
     1 | wR | wN | wB | wQ | wK | wB |    | wR |
       |----|----|----|----|----|----|----|----|
-        a    b    c    d    e    f    g    h  
+        a    b    c    d    e    f    g    h
      */
     let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
     let mut game = Game::init();
@@ -317,4 +318,115 @@ fn test_undo_move() {
     game.undo_move();
     let fen2 = game.get_fen();
     assert_eq!(fen2, fen);
+}
+
+#[test]
+fn test_queen_in_position() {
+    let fen = "rnbqkbnr/ppp2ppp/4P3/8/8/8/PPPP1PPP/RNBQKBNR b KQkq - 4 1".to_string();
+    let mut game = Game::init();
+    game.set_from_fen(fen.clone());
+    game.board.show();
+    let allowed_move = game.play_move_from_string("d8".to_string(), "d6".to_string());
+    assert_eq!(allowed_move, true);
+}
+
+#[test]
+fn test_fen_serde() {
+    let fen = "rnbqkbnr/ppp2ppp/4P3/8/8/8/PPPP1PPP/RNBQKBNR b KQkq - 4 1".to_string();
+    let mut game = Game::init();
+    game.set_from_fen(fen.clone());
+    let fen2 = game.get_fen();
+    assert_eq!(fen2, fen);
+}
+
+#[test]
+fn test_binary_to_piece() {
+    let piece = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + KING);
+    assert_eq!(piece.is_white, true);
+    assert_eq!(piece.class, PieceType::King);
+}
+
+#[test]
+fn test_binary_to_piece_queen() {
+    let piece = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + QUEEN);
+    assert_eq!(piece.is_white, true);
+    assert_eq!(piece.class, PieceType::Queen);
+}
+
+#[test]
+fn test_position_start() {
+    let game = Game::init();
+    let black_king = game.get_piece_at_square("e8".to_string());
+    let black_queen = game.get_piece_at_square("d8".to_string());
+    let black_king_array = Piece::init_from_binary(game.board.state[4]);
+    let black_queen_array = Piece::init_from_binary(game.board.state[3]);
+    assert_eq!(black_king_array.class, PieceType::King);
+    assert_eq!(black_queen_array.class, PieceType::Queen);
+    assert_eq!(black_king, "k".to_string());
+    assert_eq!(black_queen, "q".to_string());
+}
+
+#[test]
+fn test_hashmap_array_parity() {
+    let mut game = Game::init();
+    let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
+    game.set_from_fen(fen.clone());
+    let mut parity = true;
+    for (key, value) in game.board.pieces.iter() {
+        let piece = *value;
+        let piece_from_board = *game.board.pieces.get(&key).unwrap();
+        if piece != piece_from_board {
+            parity = false;
+        }
+    }
+    assert_eq!(parity, true);
+}
+
+#[test]
+fn test_queen_moves_from_fen() {
+    let mut game = Game::init();
+    let fen = "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1".to_string();
+    /*
+      |----|----|----|----|----|----|----|----|
+    8 | bR | bN | bB | bQ | bK | bB | bN | bR |
+      |----|----|----|----|----|----|----|----|
+    7 | bP | bP | bP |    | bP | bP | bP | bP |
+      |----|----|----|----|----|----|----|----|
+    6 |    |    |    |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    5 |    |    |    | bP |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    4 |    |    |    | wP |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    3 |    |    |    |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    2 | wP | wP | wP |    | wP | wP | wP | wP |
+      |----|----|----|----|----|----|----|----|
+    1 | wR | wN | wB | wQ | wK | wB | wN | wR |
+      |----|----|----|----|----|----|----|----|
+        a    b    c    d    e    f    g    h
+    */
+    game.set_from_fen(fen.clone());
+    let initial_position = position_helper::letter_to_position_byte("d1".to_string());
+    let white_queen_bits = game.board.pieces.get(&initial_position).unwrap();
+    let queen = Piece::init_from_binary(*white_queen_bits);
+    let possible_positions: HashSet<String> = queen
+        .possible_moves(initial_position, &game.board)
+        .iter()
+        .map(|x| position_helper::position_byte_to_letter(*x))
+        .collect();
+    println!(
+        "The positions from {} for the queen are: {:?}",
+        "d1", possible_positions
+    );
+    let correct_position: HashSet<String> = HashSet::from(
+        [
+            "d2", "d3"
+        ]
+        .iter()
+        .map(|&x| String::from(x))
+        .collect::<HashSet<String>>(),
+    );
+    assert_eq!(PIECE_BIT+WHITE_BIT+QUEEN, *white_queen_bits);
+    assert_eq!(possible_positions, correct_position);
 }
