@@ -85,7 +85,7 @@ impl ChessGame for Game {
 
         for (position, piece) in &self.board.pieces {
             let piece = Piece::init_from_binary(*piece);
-            let possible_moves = piece.possible_moves(*position, &self.board);
+            let possible_moves = piece.possible_moves(*position, &self.board.clone());
             for move_position in possible_moves {
                 moves.push(Move {
                     source: *position,
@@ -113,7 +113,7 @@ impl ChessGame for Game {
     }
 
     fn undo_move(&mut self) {
-        if self.previous_fen_positions.len() == 0 {
+        if self.previous_fen_positions.is_empty() {
             return;
         }
         let last_move = self.previous_fen_positions.pop().unwrap();
@@ -146,7 +146,7 @@ impl ChessGame for Game {
         self.board.state = [0u8; 64];
 
         // Split the fen
-        let mut fen_split = fen.split(" ");
+        let mut fen_split = fen.split(' ');
         let board_state = fen_split.next().unwrap();
         let turn = fen_split.next().unwrap();
         let castling_options = fen_split.next().unwrap();
@@ -192,11 +192,7 @@ impl ChessGame for Game {
         self.board.update_hashmap();
 
         // Set the turn
-        if turn == "w" {
-            self.white_turn = true;
-        } else {
-            self.white_turn = false;
-        }
+        self.white_turn = turn == "w";
 
         // Set the castling options
         self.castling_options = vec![];
@@ -228,15 +224,15 @@ impl ChessGame for Game {
         for option in &self.castling_options {
             fen_string.push_str(&option.to_string());
         }
-        fen_string.push_str(" ");
+        fen_string.push(' ');
 
         // Append the en passant
         fen_string.push_str(&self.en_passant);
-        fen_string.push_str(" ");
+        fen_string.push(' ');
 
         // Append the half move clock
         fen_string.push_str(&self.half_move_clock.to_string());
-        fen_string.push_str(" ");
+        fen_string.push(' ');
 
         // Append the full move number
         fen_string.push_str(&self.full_move_number.to_string());
@@ -264,7 +260,7 @@ impl ChessGame for Game {
                 if empty_count != 0 {
                     fen_string.push_str(&empty_count.to_string());
                 }
-                fen_string.push_str("/");
+                fen_string.push('/');
                 empty_count = 0;
             }
         }
@@ -284,7 +280,7 @@ impl ChessGame for Game {
         let piece = Piece::init_from_binary(*piece_opt.unwrap());
 
         // Check if turn is correct
-        if piece.is_white != self.white_turn || !piece.is_white == self.white_turn {
+        if piece.is_white != self.white_turn {
             println!("It is not your turn!");
             return false;
         }
@@ -297,7 +293,7 @@ impl ChessGame for Game {
 
             // Take piece
             let final_position_index = position_helper::position_byte_to_index(target);
-            let taken_piece = self.board.state.get(final_position_index as usize);
+            let taken_piece = self.board.state.get(final_position_index);
             let t_piece = taken_piece.unwrap_or(&0u8);
             if *t_piece != 0 {
                 //TODO: store the piece taken and give rewards
@@ -372,11 +368,11 @@ impl Game {
             if piece.is_white {
                 let pawn_taken_pos = self.board.en_passant + 16;
                 self.board.state
-                    [position_helper::position_byte_to_index(pawn_taken_pos) as usize] = 0;
+                    [position_helper::position_byte_to_index(pawn_taken_pos)] = 0;
             } else {
                 let pawn_taken_pos = self.board.en_passant - 16;
                 self.board.state
-                    [position_helper::position_byte_to_index(pawn_taken_pos) as usize] = 0;
+                    [position_helper::position_byte_to_index(pawn_taken_pos)] = 0;
             }
         }
     }
