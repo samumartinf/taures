@@ -38,7 +38,7 @@ fn undo_move() {
 #[tauri::command]
 fn get_possible_moves(source: &str) -> Vec<String> {
     let game = GAME.lock().unwrap();
-    return game.get_allowed_moves(source.to_string());
+    return game.get_pseudolegal_moves(source.to_string());
 }
 
 #[tauri::command]

@@ -12,13 +12,14 @@ const ROOK: u8 = 6u8;
 const ROW: u8 = 16u8;
 const COL: u8 = 1u8;
 
+#[derive(Debug, Clone)]
 pub struct Game {
     white_turn: bool,
     previous_fen_positions: Vec<String>,
     pub board: Board,
     game_done: bool,
     castling_options: Vec<char>,
-    en_passant: String,
+    pub en_passant: String,
     half_move_clock: i32,
     full_move_number: i32,
 }
@@ -31,7 +32,8 @@ pub trait ChessGame {
     fn get_fen_simple(&self) -> String;
     fn restart(&mut self);
     fn undo_move(&mut self);
-    fn get_allowed_moves(&self, position: String) -> Vec<String>;
+    fn get_pseudolegal_moves(&self, position: String) -> Vec<String>;
+    fn get_all_moves(&self) -> Vec<Move>;
 }
 
 pub trait ChessDebugInfo {
@@ -60,7 +62,7 @@ impl Game {
             board,
             game_done: false,
             castling_options: vec!['K', 'Q', 'k', 'q'],
-            en_passant: String::from("-"),
+            en_passant: "-".to_string(),
             half_move_clock: 0i32,
             full_move_number: 1i32,
         }
@@ -71,16 +73,45 @@ impl Game {
     }
 }
 
+pub struct Move {
+    source: u8,    // source position byte
+    target: u8,    // target position byte
+    promotion: u8, // piece to promote to
+}
+
 impl ChessGame for Game {
-    fn get_allowed_moves(&self, position: String) -> Vec<String> {
-        let position_byte= position_helper::letter_to_position_byte(position);
+    fn get_all_moves(&self) -> Vec<Move> {
+        let mut moves = vec![];
+
+        for (position, piece) in &self.board.pieces {
+            let piece = Piece::init_from_binary(*piece);
+            let possible_moves = piece.possible_moves(*position, &self.board);
+            for move_position in possible_moves {
+                moves.push(Move {
+                    source: *position,
+                    target: move_position,
+                    promotion: 0u8,
+                })
+            }
+        }
+
+        return moves;
+    }
+    fn get_pseudolegal_moves(&self, position: String) -> Vec<String> {
+        let position_byte = position_helper::letter_to_position_byte(position);
         let piece_opt = self.board.pieces.get(&position_byte);
         if piece_opt.is_none() {
             return vec![];
         }
+
         let piece = Piece::init_from_binary(*piece_opt.unwrap());
-        return piece.possible_moves(position_byte, &self.board).iter().map(|x| position_helper::position_byte_to_letter(*x)).collect();
+        return piece
+            .possible_moves(position_byte, &self.board)
+            .iter()
+            .map(|x| position_helper::position_byte_to_letter(*x))
+            .collect();
     }
+
     fn undo_move(&mut self) {
         if self.previous_fen_positions.len() == 0 {
             return;
@@ -97,7 +128,7 @@ impl ChessGame for Game {
         self.board = board;
         self.game_done = false;
         self.castling_options = vec!['K', 'Q', 'k', 'q'];
-        self.en_passant = String::from("-");
+        self.en_passant = "-".to_string();
         self.half_move_clock = 0i32;
         self.full_move_number = 1i32;
     }
@@ -241,59 +272,110 @@ impl ChessGame for Game {
         return fen_string;
     }
 
-    fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool {
-        let piece_opt = self.board.pieces.get(&initial_position);
+    fn play_move(&mut self, source: u8, target: u8) -> bool {
+        let piece_opt = self.board.pieces.get(&source);
         let mut pawn_taken = false;
+        let mut en_passant_set = false;
 
-        if let Some(piece_bits) = piece_opt {
-            let piece = Piece::init_from_binary(*piece_bits);
+        if piece_opt.is_none() {
+            return false;
+        }
 
-            // Check if turn is correct
-            if piece.is_white != self.white_turn || !piece.is_white == self.white_turn {
-                println!("It is not your turn!");
-                return false;
+        let piece = Piece::init_from_binary(*piece_opt.unwrap());
+
+        // Check if turn is correct
+        if piece.is_white != self.white_turn || !piece.is_white == self.white_turn {
+            println!("It is not your turn!");
+            return false;
+        }
+
+        let possible_moves = piece.possible_moves(source, &self.board);
+        // TODO: ensure these moves are actually legal, not just "pseudo legal"
+        if possible_moves.contains(&target) {
+            // Update the previous positions vector
+            let previous_fen = self.get_fen();
+
+            // Take piece
+            let final_position_index = position_helper::position_byte_to_index(target);
+            let taken_piece = self.board.state.get(final_position_index as usize);
+            let t_piece = taken_piece.unwrap_or(&0u8);
+            if *t_piece != 0 {
+                //TODO: store the piece taken and give rewards
+                let taken_p = Piece::init_from_binary(*t_piece);
+                if taken_p.class == PieceType::King {
+                    self.game_done = true;
+                    println!("GG wp");
+                }
+                if taken_p.class == PieceType::Pawn {
+                    pawn_taken = true;
+                }
             }
 
-            let possible_moves = piece.possible_moves(initial_position, &self.board);
-            if possible_moves.contains(&final_position) {
-                // Update the previous positions vector
-                self.previous_fen_positions.push(self.get_fen());
+            // Set en passant flag
+            en_passant_set = self.set_en_passant_flag(&piece, source, target);
 
-                // Take piece
-                let final_position_index = position_helper::position_byte_to_index(final_position);
-                let taken_piece = self.board.state.get(final_position_index as usize);
-                let t_piece = taken_piece.unwrap_or(&0u8);
-                if *t_piece != 0 {
-                    //TODO: store the piece taken and give rewards
-                    let taken_p = Piece::init_from_binary(*t_piece);
-                    if taken_p.class == PieceType::King {
-                        self.game_done = true;
-                        println!("GG wp");
-                    }
-                    if taken_p.class == PieceType::Pawn {
-                        pawn_taken = true;
-                    }
-                }
-                // update the board
-                self.board.state[final_position_index as usize] = piece.binary;
-                self.board.state[position_helper::position_byte_to_index(initial_position)] = 0;
-
-                self.board.update_hashmap();
-                self.white_turn = !self.white_turn;
-
-                //update the half move clock
-                if piece.class == PieceType::Pawn || pawn_taken {
-                    self.half_move_clock = 0;
+            // Manage en passant taking
+            if piece.class == PieceType::Pawn && self.board.en_passant != 0 && target == self.board.en_passant{
+                if piece.is_white {
+                    let pawn_taken_pos = self.board.en_passant + 16;
+                    self.board.state[position_helper::position_byte_to_index(pawn_taken_pos) as usize]  = 0;
                 } else {
-                    self.half_move_clock += 1;
+                    let pawn_taken_pos = self.board.en_passant - 16;
+                    self.board.state[position_helper::position_byte_to_index(pawn_taken_pos) as usize]  = 0;
                 }
-
-                return true;
-            } else {
-                println!("This move is not valid");
             }
+
+            // update the board
+            if !en_passant_set {
+                self.board.en_passant = 0;
+                self.en_passant = "-".to_string();
+            }
+            self.board.state[final_position_index as usize] = piece.binary;
+            self.board.state[position_helper::position_byte_to_index(source)] = 0;
+            self.previous_fen_positions.push(previous_fen);
+
+            self.board.update_hashmap();
+            self.white_turn = !self.white_turn;
+
+            //update the half move clock
+            if piece.class == PieceType::Pawn || pawn_taken {
+                self.half_move_clock = 0;
+            } else {
+                self.half_move_clock += 1;
+            }
+
+            // update full move count
+            // TODO: ensure this generates the correct full move count
+            if self.white_turn {
+                self.full_move_number += 1;
+            }
+
+            return true;
+        } else {
+            println!("This move is not valid");
         }
         return false;
+    }
+}
+
+impl Game {
+    fn set_en_passant_flag(&mut self, piece: &Piece, source: u8, target: u8) -> bool {
+        let mut en_passant_set = false;
+        if piece.class == PieceType::Pawn {
+            let row_difference = position_helper::get_row(source) as i32
+                - position_helper::get_row(target) as i32;
+            if row_difference == 2 || row_difference == -2 {
+                en_passant_set = true;
+                if piece.is_white {
+                    self.en_passant = position_helper::position_byte_to_letter(target + 16);
+                    self.board.en_passant = target + 16;
+                } else {
+                    self.en_passant = position_helper::position_byte_to_letter(target - 16);
+                    self.board.en_passant = target - 16;
+                }
+            }
+        } 
+        return en_passant_set;
     }
 }
 
@@ -315,7 +397,7 @@ pub enum PieceType {
 }
 
 impl Piece {
-    fn pawn_moves(self, position: u8, board: Board) -> Vec<u8> {
+    fn pawn_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::new();
 
         // White pawns move in the negative direction
@@ -345,10 +427,14 @@ impl Piece {
         if self.is_white {
             let diagonal_right = position - ROW + COL;
             let diagonal_left = position - ROW - COL;
-            if board.pieces.get(&diagonal_left.clone()).is_some() {
+            if board.pieces.get(&diagonal_left.clone()).is_some()
+                || board.en_passant == diagonal_left
+            {
                 possible_positions.push(diagonal_left.clone());
             }
-            if board.pieces.get(&diagonal_right.clone()).is_some() {
+            if board.pieces.get(&diagonal_right.clone()).is_some()
+                || board.en_passant == diagonal_right
+            {
                 possible_positions.push(diagonal_right.clone());
             }
         }
@@ -356,10 +442,14 @@ impl Piece {
         else {
             let diagonal_right = position + ROW + COL;
             let diagonal_left = position + ROW - COL;
-            if board.pieces.get(&diagonal_left.clone()).is_some() {
+            if board.pieces.get(&diagonal_left.clone()).is_some()
+                || board.en_passant == diagonal_left
+            {
                 possible_positions.push(diagonal_left.clone());
             }
-            if board.pieces.get(&diagonal_right.clone()).is_some() {
+            if board.pieces.get(&diagonal_right.clone()).is_some()
+                || board.en_passant == diagonal_right
+            {
                 possible_positions.push(diagonal_right.clone());
             }
         }
@@ -374,7 +464,7 @@ impl Piece {
         final_positions
     }
 
-    fn king_moves(self, position: u8, board: Board) -> Vec<u8> {
+    fn king_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::<u8>::new();
         let row = position_helper::get_row(position);
         let col = position_helper::get_col(position);
@@ -434,7 +524,7 @@ impl Piece {
         final_positions
     }
 
-    fn rook_moves(self, position: u8, board: Board) -> Vec<u8> {
+    fn rook_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::<u8>::new();
         let row = position_helper::get_row(position);
         let col = position_helper::get_col(position);
@@ -483,6 +573,8 @@ impl Piece {
             }
         }
 
+        // Handle castling
+
         let mut final_positions = Vec::new();
         for pos in possible_positions {
             if position_helper::is_position_valid(pos, &board, self.is_white) {
@@ -493,18 +585,18 @@ impl Piece {
         return final_positions;
     }
 
-    fn queen_moves(self, position: u8, board: Board) -> Vec<u8> {
+    fn queen_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let row = position_helper::get_row(position);
         let col = position_helper::get_col(position);
 
-        let mut queen_positions = self.clone().rook_moves(position, board.clone());
-        let mut bishop_positions = self.bishop_moves(position, board);
+        let mut queen_positions = self.clone().rook_moves(position, &board);
+        let mut bishop_positions = self.bishop_moves(position, &board);
 
         queen_positions.append(&mut bishop_positions);
         return queen_positions.to_vec();
     }
 
-    fn bishop_moves(self, position: u8, board: Board) -> Vec<u8> {
+    fn bishop_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let row = position_helper::get_row(position);
         let col = position_helper::get_col(position);
         let mut blocked_up_left = false;
@@ -557,7 +649,7 @@ impl Piece {
             .collect()
     }
 
-    fn knight_moves(self, position: u8, board: Board) -> Vec<u8> {
+    fn knight_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let possible_positions: Vec<u8> = vec![
             position
                 .checked_add(COL)
@@ -600,32 +692,26 @@ impl Piece {
 }
 
 impl BasicPiece for Piece {
-    fn is_move_valid(&self, position: u8, board: Board) -> bool {
-        //TODO: implement this
-
-        return true;
-    }
-
     fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::new();
         match self.class {
             PieceType::Pawn => {
-                possible_positions = Piece::pawn_moves(self.clone(), position, board.clone())
+                possible_positions = Piece::pawn_moves(self.clone(), position, &board)
             }
             PieceType::King => {
-                possible_positions = Piece::king_moves(self.clone(), position, board.clone())
+                possible_positions = Piece::king_moves(self.clone(), position, board)
             }
             PieceType::Bishop => {
-                possible_positions = Piece::bishop_moves(self.clone(), position, board.clone())
+                possible_positions = Piece::bishop_moves(self.clone(), position, board)
             }
             PieceType::Queen => {
-                possible_positions = Piece::queen_moves(self.clone(), position, board.clone())
+                possible_positions = Piece::queen_moves(self.clone(), position, board)
             }
             PieceType::Rook => {
-                possible_positions = Piece::rook_moves(self.clone(), position, board.clone())
+                possible_positions = Piece::rook_moves(self.clone(), position, board)
             }
             PieceType::Knight => {
-                possible_positions = Piece::knight_moves(self.clone(), position, board.clone())
+                possible_positions = Piece::knight_moves(self.clone(), position, board)
             }
         }
 
@@ -695,7 +781,6 @@ impl BasicPiece for Piece {
 }
 
 pub trait BasicPiece {
-    fn is_move_valid(&self, position: u8, board: Board) -> bool;
     fn init_from_binary(binary: u8) -> Self;
     fn text_repr(&self) -> String;
     fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8>;
@@ -706,10 +791,13 @@ pub trait BasicPiece {
 pub struct Board {
     pub pieces: HashMap<u8, u8>, // HashMap<positionByte, pieceByte>
     pub state: [u8; 64],         // arr[index] = pieceByte
+    pub bitboard: [u64; 12],     // 0-5 white, 6-11 black (unsured atm)
+    pub hash: u64,
+    pub en_passant: u8, // 0000 0000 or the position
+    pub castling: u8,   // 8 = K, 4 = Q, 2 = k, 1 = q
 }
 
 impl Board {
-
     pub fn show(&self) {
         println!("  |----|----|----|----|----|----|----|----|");
         let mut row_count = 8;
@@ -738,9 +826,20 @@ impl Board {
     }
 
     pub fn init() -> Self {
-        let mut state = [0u8; 64];
-        let mut pieces: HashMap<u8, u8> = HashMap::new();
-        Self { pieces, state }
+        let state = [0u8; 64];
+        let pieces: HashMap<u8, u8> = HashMap::new();
+        let bitboard = [0u64; 12];
+        let hash = 0u64;
+        let en_passant = 0u8;
+        let castling = 8u8 + 4u8 + 2u8 + 1u8;
+        Self {
+            pieces,
+            state,
+            bitboard,
+            hash,
+            en_passant,
+            castling,
+        }
     }
 
     pub fn set_start_position(&mut self) {

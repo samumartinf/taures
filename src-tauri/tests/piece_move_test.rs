@@ -331,6 +331,17 @@ fn test_queen_in_position() {
 }
 
 #[test]
+fn test_en_passant_take() {
+    let mut game = Game::init();
+    game.play_move_from_string("e2".to_string(),"e4".to_string());
+    game.play_move_from_string("a7".to_string(), "a6".to_string());
+    game.play_move_from_string("e4".to_string(), "e5".to_string());
+    game.play_move_from_string("d7".to_string(), "d5".to_string());
+    let valid_move = game.play_move_from_string("e5".to_string(), "d6".to_string());
+    assert_eq!(true, valid_move);
+}
+
+#[test]
 fn test_fen_serde() {
     let fen = "rnbqkbnr/ppp2ppp/4P3/8/8/8/PPPP1PPP/RNBQKBNR b KQkq - 4 1".to_string();
     let mut game = Game::init();
@@ -380,6 +391,13 @@ fn test_hashmap_array_parity() {
         }
     }
     assert_eq!(parity, true);
+}
+
+#[test]
+fn test_en_passant_flag() {
+    let mut game = Game::init();
+    game.play_move_from_string("e2".to_string(), "e4".to_string());
+    assert_eq!(game.en_passant, "e3");
 }
 
 #[test]
