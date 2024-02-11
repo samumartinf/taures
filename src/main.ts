@@ -42,12 +42,6 @@ async function onDragStart(source, piece, position, orientation) {
 }
 
 async function onDragStart2(source: string, piece, position, orientation) {
-  console.log("Drag started:");
-  console.log("Source: " + source);
-  console.log("Piece: " + piece);
-  console.log("Position: " + Chessboard.objToFen(position));
-  console.log("Orientation: " + orientation);
-  console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
   var fen: string = board.fen();
   // Update debugInfoBoard and debugInfoEngine labels
   document.getElementById("debugLabelBoard").innerText =
@@ -56,7 +50,7 @@ async function onDragStart2(source: string, piece, position, orientation) {
   var enginePiece = await invoke("get_piece_at_square", { square: source });
 
   document.getElementById("debugLabelEngine").innerText =
-    "Engine FEN: " + fenFromEngine + ", Piece: " + enginePiece;
+    "Engin FEN: " + fenFromEngine + ", Piece: " + enginePiece;
 
   var possible_moves_from_engine: [string] = await invoke(
     "get_possible_moves",
@@ -66,18 +60,20 @@ async function onDragStart2(source: string, piece, position, orientation) {
     "Allowed movez: " + possible_moves_from_engine;
 }
 
+async function makeRandomMove() {
+  var newFen: string = await invoke("make_random_move");
+  board.position(newFen);
+}
+
 async function restart() {
   await invoke("restart_game");
   var fen = await invoke("get_fen_simple");
-  console.log("FEN from engine: " + fen);
   board.position(fen);
 }
 
 async function undoMove() {
-  console.log("Undo move...");
   await invoke("undo_move");
   var fen: string = await invoke("get_fen_simple");
-  console.log("FEN from engine: " + fen);
   board.position(fen);
 }
 
@@ -117,4 +113,5 @@ window.addEventListener("DOMContentLoaded", () => {
   $("#undoBtn").on("click", undoMove);
   $("#getFenBtn").on("click", getFen);
   $("#showPositionBtn").on("click", showPosition);
+  $("#randomMoveBtn").on("click", makeRandomMove);
 });

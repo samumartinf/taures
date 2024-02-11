@@ -1,7 +1,8 @@
-use cherris::{self, ChessDebugInfo, ChessGame, Game};
+use cherris::{self, ChessDebugInfo, ChessGame, Game, position_helper::{self, position_byte_to_letter}};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex};
+use rand::Rng;
 
 lazy_static! {
     static ref GAME: Arc<Mutex<Game>> = Arc::new(Mutex::new(Game::init()));
@@ -65,6 +66,24 @@ fn get_position_string() {
     game.board.show()
 }
 
+#[tauri::command]
+fn make_random_move() -> String {
+    let mut game = GAME.lock().unwrap();
+    let moves = game.get_all_moves_for_color(game.white_turn);
+
+    // select a random move
+    let mut rng = rand::thread_rng();
+    let random_index = rng.gen_range(0..moves.len());
+    let random_move = moves[random_index];
+    let source = position_byte_to_letter(random_move.source);
+    let target = position_byte_to_letter(random_move.target);
+    println!("{source} to {target}");
+
+    game.play_move_ob(random_move);
+    game.get_fen_simple()
+
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     let mut board: cherris::Board = cherris::Board::init();
@@ -81,6 +100,7 @@ fn main() -> Result<()> {
             get_piece_at_square,
             get_possible_moves,
             get_position_string,
+            make_random_move,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

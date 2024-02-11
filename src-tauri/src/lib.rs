@@ -1,5 +1,7 @@
 use std::{collections::HashMap, vec};
 
+use color_eyre::owo_colors::OwoColorize;
+
 const PIECE_BIT: u8 = 128u8;
 const WHITE_BIT: u8 = 64u8;
 const PAWN_BIT: u8 = 8u8;
@@ -14,7 +16,7 @@ const COL: u8 = 1u8;
 
 #[derive(Debug, Clone)]
 pub struct Game {
-    white_turn: bool,
+    pub white_turn: bool,
     previous_fen_positions: Vec<String>,
     pub board: Board,
     game_done: bool,
@@ -27,6 +29,7 @@ pub struct Game {
 pub trait ChessGame {
     fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool;
     fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool;
+    fn play_move_ob(&mut self, chess_move: Move) -> bool;
     fn get_fen(&self) -> String;
     fn set_from_fen(&mut self, fen: String);
     fn get_fen_simple(&self) -> String;
@@ -34,6 +37,7 @@ pub trait ChessGame {
     fn undo_move(&mut self);
     fn get_pseudolegal_moves(&self, position: String) -> Vec<String>;
     fn get_all_moves(&self) -> Vec<Move>;
+    fn get_all_moves_for_color(&self, white: bool) -> Vec<Move>;
 }
 
 pub trait ChessDebugInfo {
@@ -73,10 +77,11 @@ impl Game {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Move {
-    source: u8,    // source position byte
-    target: u8,    // target position byte
-    promotion: u8, // piece to promote to
+    pub source: u8,    // source position byte
+    pub target: u8,    // target position byte
+    pub promotion: u8, // piece to promote to
 }
 
 impl ChessGame for Game {
@@ -97,6 +102,27 @@ impl ChessGame for Game {
 
         moves
     }
+
+    fn get_all_moves_for_color(&self, white: bool) -> Vec<Move> {
+        let mut moves:Vec<Move> = vec![];
+        for (position, piece) in &self.board.pieces {
+            let piece = Piece::init_from_binary(*piece);
+            if piece.is_white != white {
+                continue;
+            }
+            let possible_moves = piece.possible_moves(*position, &self.board.clone());
+            for move_position in possible_moves {
+                moves.push(Move {
+                    source: *position,
+                    target: move_position,
+                    promotion: 0u8,
+                })
+            }
+        } 
+
+        moves
+    }
+
     fn get_pseudolegal_moves(&self, position: String) -> Vec<String> {
         let position_byte = position_helper::letter_to_position_byte(position);
         let piece_opt = self.board.pieces.get(&position_byte);
@@ -131,6 +157,10 @@ impl ChessGame for Game {
         self.en_passant = "-".to_string();
         self.half_move_clock = 0i32;
         self.full_move_number = 1i32;
+    }
+
+    fn play_move_ob(&mut self, chess_move: Move) -> bool {
+        self.play_move(chess_move.source, chess_move.target)
     }
 
     fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool {
@@ -256,11 +286,17 @@ impl ChessGame for Game {
             } else {
                 empty_count += 1;
             }
-            if (i + 1) % 8 == 0 && i != 63 {
+
+            // Add number of empty slots by end of rank
+            if (i + 1) % 8 == 0 {
                 if empty_count != 0 {
                     fen_string.push_str(&empty_count.to_string());
                 }
-                fen_string.push('/');
+            }
+
+            // Add '/' at end of rank
+            if (i + 1) % 8 == 0 && i != 63 {
+               fen_string.push('/');
                 empty_count = 0;
             }
         }
@@ -269,6 +305,17 @@ impl ChessGame for Game {
     }
 
     fn play_move(&mut self, source: u8, target: u8) -> bool {
+        if self.game_done {
+            let winning_side: String;
+            if self.white_turn {
+                winning_side = "Black".to_string();
+            } else {
+                winning_side = "White".to_string();
+            }
+            println!("The Game is done + {winning_side} won");
+            return false;
+        }
+
         let piece_opt = self.board.pieces.get(&source);
         let mut pawn_taken = false;
         let en_passant_set: bool;
@@ -418,6 +465,7 @@ impl Piece {
 
             if position_helper::get_row(position) == 6
                 && board.pieces.get(&(position - 32)).is_none()
+                && board.pieces.get(&(position - 16)).is_none()
             {
                 possible_positions.push(position - 32);
             }
@@ -429,6 +477,7 @@ impl Piece {
             }
             if position_helper::get_row(position) == 1
                 && board.pieces.get(&(position + 32)).is_none()
+                && board.pieces.get(&(position + 16)).is_none()
             {
                 possible_positions.push(position + 32);
             }
