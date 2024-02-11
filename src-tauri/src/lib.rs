@@ -48,7 +48,7 @@ impl ChessDebugInfo for Game {
             return String::from("None");
         }
         let piece = Piece::init_from_binary(*piece_opt.unwrap());
-        return piece.fen_repr();
+        piece.fen_repr()
     }
 }
 
@@ -95,7 +95,7 @@ impl ChessGame for Game {
             }
         }
 
-        return moves;
+        moves
     }
     fn get_pseudolegal_moves(&self, position: String) -> Vec<String> {
         let position_byte = position_helper::letter_to_position_byte(position);
@@ -237,7 +237,7 @@ impl ChessGame for Game {
         // Append the full move number
         fen_string.push_str(&self.full_move_number.to_string());
 
-        return fen_string;
+        fen_string
     }
 
     fn get_fen_simple(&self) -> String {
@@ -265,7 +265,7 @@ impl ChessGame for Game {
             }
         }
 
-        return fen_string;
+        fen_string
     }
 
     fn play_move(&mut self, source: u8, target: u8) -> bool {
@@ -336,7 +336,7 @@ impl ChessGame for Game {
         } else {
             println!("This move is not valid");
         }
-        return false;
+        false
     }
 }
 
@@ -357,7 +357,7 @@ impl Game {
                 }
             }
         }
-        return en_passant_set;
+        en_passant_set
     }
 
     fn en_passant_taking(&mut self, piece: &Piece, target: u8) {
@@ -382,7 +382,7 @@ impl Game {
             self.board.en_passant = 0;
             self.en_passant = "-".to_string();
         }
-        self.board.state[position_helper::position_byte_to_index(target) as usize] = piece.binary;
+        self.board.state[position_helper::position_byte_to_index(target)] = piece.binary;
         self.board.state[position_helper::position_byte_to_index(source)] = 0;
 
         self.board.update_hashmap();
@@ -440,12 +440,12 @@ impl Piece {
             if board.pieces.get(&diagonal_left.clone()).is_some()
                 || board.en_passant == diagonal_left
             {
-                possible_positions.push(diagonal_left.clone());
+                possible_positions.push(diagonal_left);
             }
             if board.pieces.get(&diagonal_right.clone()).is_some()
                 || board.en_passant == diagonal_right
             {
-                possible_positions.push(diagonal_right.clone());
+                possible_positions.push(diagonal_right);
             }
         }
         // Black paws move in the positive direction
@@ -455,18 +455,18 @@ impl Piece {
             if board.pieces.get(&diagonal_left.clone()).is_some()
                 || board.en_passant == diagonal_left
             {
-                possible_positions.push(diagonal_left.clone());
+                possible_positions.push(diagonal_left);
             }
             if board.pieces.get(&diagonal_right.clone()).is_some()
                 || board.en_passant == diagonal_right
             {
-                possible_positions.push(diagonal_right.clone());
+                possible_positions.push(diagonal_right);
             }
         }
 
         let mut final_positions = Vec::new();
         for pos in possible_positions {
-            if position_helper::is_position_valid(pos, &board, self.is_white) {
+            if position_helper::is_position_valid(pos, board, self.is_white) {
                 final_positions.push(pos);
             }
         }
@@ -526,7 +526,7 @@ impl Piece {
 
         let mut final_positions = Vec::<u8>::new();
         for pos in possible_positions {
-            if position_helper::is_position_valid(pos, &board, self.is_white) {
+            if position_helper::is_position_valid(pos, board, self.is_white) {
                 final_positions.push(pos);
             }
         }
@@ -587,20 +587,20 @@ impl Piece {
 
         let mut final_positions = Vec::new();
         for pos in possible_positions {
-            if position_helper::is_position_valid(pos, &board, self.is_white) {
+            if position_helper::is_position_valid(pos, board, self.is_white) {
                 final_positions.push(pos);
             }
         }
 
-        return final_positions;
+        final_positions
     }
 
     fn queen_moves(self, position: u8, board: &Board) -> Vec<u8> {
-        let mut queen_positions = self.clone().rook_moves(position, &board);
-        let mut bishop_positions = self.bishop_moves(position, &board);
+        let mut queen_positions = self.clone().rook_moves(position, board);
+        let mut bishop_positions = self.bishop_moves(position, board);
 
         queen_positions.append(&mut bishop_positions);
-        return queen_positions.to_vec();
+        queen_positions.to_vec()
     }
 
     fn bishop_moves(self, position: u8, board: &Board) -> Vec<u8> {
@@ -652,7 +652,7 @@ impl Piece {
                 Some(moves)
             })
             .flatten()
-            .filter(|&pos| position_helper::is_position_valid(pos, &board, self.is_white))
+            .filter(|&pos| position_helper::is_position_valid(pos, board, self.is_white))
             .collect()
     }
 
@@ -689,12 +689,12 @@ impl Piece {
 
         let mut final_positions = Vec::new();
         for pos in possible_positions {
-            if position_helper::is_position_valid(pos, &board, self.is_white) {
+            if position_helper::is_position_valid(pos, board, self.is_white) {
                 final_positions.push(pos);
             }
         }
 
-        return final_positions;
+        final_positions
     }
 }
 
@@ -703,7 +703,7 @@ impl BasicPiece for Piece {
         let possible_positions:Vec<u8>;
         match self.class {
             PieceType::Pawn => {
-                possible_positions = Piece::pawn_moves(self.clone(), position, &board)
+                possible_positions = Piece::pawn_moves(self.clone(), position, board)
             }
             PieceType::King => {
                 possible_positions = Piece::king_moves(self.clone(), position, board)
@@ -780,10 +780,10 @@ impl BasicPiece for Piece {
             PieceType::Rook => "R",
         }
         .to_string();
-        if self.is_white == false {
+        if !self.is_white {
             piece_string = piece_string.to_lowercase();
         }
-        return piece_string;
+        piece_string
     }
 }
 
@@ -856,7 +856,7 @@ impl Board {
         let initial_fen = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
 
         // Split the fen
-        let mut fen_split = initial_fen.split(" ");
+        let mut fen_split = initial_fen.split(' ');
         let board_state = fen_split.next().unwrap();
 
         // Set the board state
@@ -982,7 +982,7 @@ pub mod position_helper {
         /*
         Checks whether position is within bounds and whether there is a same-coloured piece in the position
         */
-        if self::validate_position(destination_position) == false {
+        if !self::validate_position(destination_position) {
             return false;
         }
 
@@ -998,7 +998,7 @@ pub mod position_helper {
             return false;
         }
 
-        return true;
+        true
     }
 }
 

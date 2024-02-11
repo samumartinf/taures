@@ -13,14 +13,14 @@ lazy_static! {
 fn set_from_fen(fen: &str) -> String {
     let mut game = GAME.lock().unwrap();
     game.set_from_fen(fen.to_string());
-    return game.get_fen();
+    game.get_fen()
 }
 
 #[tauri::command]
 fn play_move(source: &str, target: &str) -> bool {
     let mut game = GAME.lock().unwrap();
     let allowed_move = game.play_move_from_string(source.to_string(), target.to_string());
-    return allowed_move;
+    allowed_move
 }
 
 #[tauri::command]
@@ -38,31 +38,31 @@ fn undo_move() {
 #[tauri::command]
 fn get_possible_moves(source: &str) -> Vec<String> {
     let game = GAME.lock().unwrap();
-    return game.get_pseudolegal_moves(source.to_string());
+    game.get_pseudolegal_moves(source.to_string())
 }
 
 #[tauri::command]
 fn get_fen() -> String {
     let game = GAME.lock().unwrap();
-    return game.get_fen();
+    game.get_fen()
 }
 
 #[tauri::command]
 fn get_fen_simple() -> String {
     let game = GAME.lock().unwrap();
-    return game.get_fen_simple();
+    game.get_fen_simple()
 }
 
 #[tauri::command]
 fn get_piece_at_square(square: &str) -> String {
     let game = GAME.lock().unwrap();
-    return game.get_piece_at_square(square.to_string());
+    game.get_piece_at_square(square.to_string())
 }
 
 #[tauri::command]
 fn get_position_string() {
     let game = GAME.lock().unwrap();
-    return game.board.show();
+    game.board.show()
 }
 
 fn main() -> Result<()> {
