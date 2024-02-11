@@ -275,7 +275,7 @@ impl ChessGame for Game {
     fn play_move(&mut self, source: u8, target: u8) -> bool {
         let piece_opt = self.board.pieces.get(&source);
         let mut pawn_taken = false;
-        let mut en_passant_set = false;
+        let en_passant_set: bool;
 
         if piece_opt.is_none() {
             return false;
@@ -315,26 +315,12 @@ impl ChessGame for Game {
             en_passant_set = self.set_en_passant_flag(&piece, source, target);
 
             // Manage en passant taking
-            if piece.class == PieceType::Pawn && self.board.en_passant != 0 && target == self.board.en_passant{
-                if piece.is_white {
-                    let pawn_taken_pos = self.board.en_passant + 16;
-                    self.board.state[position_helper::position_byte_to_index(pawn_taken_pos) as usize]  = 0;
-                } else {
-                    let pawn_taken_pos = self.board.en_passant - 16;
-                    self.board.state[position_helper::position_byte_to_index(pawn_taken_pos) as usize]  = 0;
-                }
-            }
+            self.en_passant_taking(&piece, target);
 
             // update the board
-            if !en_passant_set {
-                self.board.en_passant = 0;
-                self.en_passant = "-".to_string();
-            }
-            self.board.state[final_position_index as usize] = piece.binary;
-            self.board.state[position_helper::position_byte_to_index(source)] = 0;
+            self.update_board_object(&piece, source, target, en_passant_set);
             self.previous_fen_positions.push(previous_fen);
 
-            self.board.update_hashmap();
             self.white_turn = !self.white_turn;
 
             //update the half move clock
@@ -362,8 +348,8 @@ impl Game {
     fn set_en_passant_flag(&mut self, piece: &Piece, source: u8, target: u8) -> bool {
         let mut en_passant_set = false;
         if piece.class == PieceType::Pawn {
-            let row_difference = position_helper::get_row(source) as i32
-                - position_helper::get_row(target) as i32;
+            let row_difference =
+                position_helper::get_row(source) as i32 - position_helper::get_row(target) as i32;
             if row_difference == 2 || row_difference == -2 {
                 en_passant_set = true;
                 if piece.is_white {
@@ -374,8 +360,36 @@ impl Game {
                     self.board.en_passant = target - 16;
                 }
             }
-        } 
+        }
         return en_passant_set;
+    }
+
+    fn en_passant_taking(&mut self, piece: &Piece, target: u8) {
+        if piece.class == PieceType::Pawn
+            && self.board.en_passant != 0
+            && target == self.board.en_passant
+        {
+            if piece.is_white {
+                let pawn_taken_pos = self.board.en_passant + 16;
+                self.board.state
+                    [position_helper::position_byte_to_index(pawn_taken_pos) as usize] = 0;
+            } else {
+                let pawn_taken_pos = self.board.en_passant - 16;
+                self.board.state
+                    [position_helper::position_byte_to_index(pawn_taken_pos) as usize] = 0;
+            }
+        }
+    }
+
+    fn update_board_object(&mut self, piece: &Piece, source: u8, target: u8, en_passant_set: bool) {
+        if !en_passant_set {
+            self.board.en_passant = 0;
+            self.en_passant = "-".to_string();
+        }
+        self.board.state[position_helper::position_byte_to_index(target) as usize] = piece.binary;
+        self.board.state[position_helper::position_byte_to_index(source)] = 0;
+
+        self.board.update_hashmap();
     }
 }
 
@@ -586,9 +600,6 @@ impl Piece {
     }
 
     fn queen_moves(self, position: u8, board: &Board) -> Vec<u8> {
-        let row = position_helper::get_row(position);
-        let col = position_helper::get_col(position);
-
         let mut queen_positions = self.clone().rook_moves(position, &board);
         let mut bishop_positions = self.bishop_moves(position, &board);
 
@@ -693,7 +704,7 @@ impl Piece {
 
 impl BasicPiece for Piece {
     fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8> {
-        let mut possible_positions = Vec::new();
+        let possible_positions:Vec<u8>;
         match self.class {
             PieceType::Pawn => {
                 possible_positions = Piece::pawn_moves(self.clone(), position, &board)
@@ -742,7 +753,7 @@ impl BasicPiece for Piece {
 
     fn text_repr(&self) -> String {
         let mut return_string = String::from("");
-        let mut color_string = String::from("");
+        let color_string :String;
 
         if self.is_white {
             color_string = String::from("w");

@@ -40,7 +40,7 @@ fn test_start_position_array_to_hashmap() {
 
 #[test]
 fn test_pawn_initial_move_emtpy_board() {
-    let mut board = Board::init();
+    let board = Board::init();
     let pos_string: String = String::from("a2");
     let position = position_helper::letter_to_position_byte(pos_string);
     let white_pawn = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + PAWN_BIT);
@@ -63,7 +63,7 @@ fn test_pawn_cannot_take_in_front() {
 
 #[test]
 fn test_king_moves_empty_board() {
-    let mut board = Board::init();
+    let board = Board::init();
     let pos_string: String = String::from("a1");
     let position = position_helper::letter_to_position_byte(pos_string);
     let king = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + KING);
@@ -82,7 +82,7 @@ fn test_king_moves_empty_board() {
 
 #[test]
 fn test_rook_moves_empty_board() {
-    let mut board = Board::init();
+    let board = Board::init();
     let pos_string: String = String::from("d4");
     let position = position_helper::letter_to_position_byte(pos_string.clone());
     let rook = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + ROOK);
