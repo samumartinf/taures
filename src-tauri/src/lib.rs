@@ -143,6 +143,7 @@ impl ChessGame for Game {
             return;
         }
         let last_move = self.previous_fen_positions.pop().unwrap();
+        self.game_done = false;
         self.set_from_fen(last_move);
     }
 

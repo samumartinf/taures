@@ -26,22 +26,24 @@
   </head>
 
   <body>
-    <div id="board" style="width: 700px"></div>
-    <div id="debugBoard">
-      <label id="debugLabelBoard">This is debug info</label>
-    <div/>
-    <div id="debugEngine">
-      <label id="debugLabelEngine">This is debug info</label>
-    </div>
-    <div>
-      <label id="allowedMoves">Allowed moves</label>
-    </div>
-    <div id="buttons">
-      <button id="startBtn">Start Position</button>
-      <button id="undoBtn">Undo Move</button>
-      <button id="getFenBtn">Show FEN</button>
-      <button id="showPositionBtn">Print position</button>
-      <button id="randomMoveBtn">Move Random</button>
+    <div style="display: flex">
+      <div id="board" style="width: 700px"></div>
+      <div style="display: flex; flex-direction: column">
+        <div id="debugBoard">
+          <label id="debugLabelBoard">This is debug info</label>
+        </div>
+        <div id="debugEngine">
+          <label id="debugLabelEngine">This is debug info</label>
+        </div>
+        <div>
+          <label id="allowedMoves">Allowed moves</label>
+        </div>
+        <button id="startBtn">Start Position</button>
+        <button id="undoBtn">Undo Move</button>
+        <button id="getFenBtn">Show FEN</button>
+        <button id="showPositionBtn">Print position</button>
+        <button id="randomMoveBtn">Move Random</button>
+      </div>
     </div>
   </body>
 </html>

@@ -77,7 +77,6 @@ fn make_random_move() -> String {
     let random_move = moves[random_index];
     let source = position_byte_to_letter(random_move.source);
     let target = position_byte_to_letter(random_move.target);
-    println!("{source} to {target}");
 
     game.play_move_ob(random_move);
     game.get_fen_simple()
