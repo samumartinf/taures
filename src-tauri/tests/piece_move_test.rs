@@ -14,40 +14,27 @@ const ROOK: u8 = 6u8;
 
 #[test]
 fn test_index_to_letters() {
-    let pos_byte = position_helper::index_to_position_byte(3); // 3 = Black Queen
-    let cell = position_helper::position_byte_to_letter(pos_byte);
-    assert_eq!(pos_byte, 0b00000011);
+    let cell = position_helper::index_to_letter(3u8);
     assert_eq!(cell, "d8");
 }
 
 #[test]
 fn test_letters_to_index() {
     let cell = String::from("d8");
-    let pos_byte = position_helper::letter_to_position_byte(cell);
-    println!("The position byte returned is {}", pos_byte);
-    let index = position_helper::position_byte_to_index(pos_byte);
-    assert_eq!(pos_byte, 0b00000011);
+    let index = position_helper::letter_to_index(cell);
     assert_eq!(index, 3);
-}
-
-#[test]
-fn test_start_position_array_to_hashmap() {
-    let mut board = Board::init();
-    board.set_start_position();
-    let piece = *board.pieces.get(&0b00000011).unwrap();
-    assert_eq!(piece, PIECE_BIT + QUEEN); // Black queen should be on index 3 after init()
 }
 
 #[test]
 fn test_pawn_initial_move_emtpy_board() {
     let board = Board::init();
     let pos_string: String = String::from("a2");
-    let position = position_helper::letter_to_position_byte(pos_string);
+    let position = position_helper::letter_to_index(pos_string);
     let white_pawn = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + PAWN_BIT);
     let possible_positions: Vec<String> = white_pawn
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     assert_eq!(possible_positions, vec!["a3", "a4"]);
 }
@@ -65,12 +52,12 @@ fn test_pawn_cannot_take_in_front() {
 fn test_king_moves_empty_board() {
     let board = Board::init();
     let pos_string: String = String::from("a1");
-    let position = position_helper::letter_to_position_byte(pos_string);
+    let position = position_helper::letter_to_index(pos_string);
     let king = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + KING);
     let mut possible_positions: Vec<String> = king
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     possible_positions.sort();
     println!(
@@ -84,12 +71,12 @@ fn test_king_moves_empty_board() {
 fn test_rook_moves_empty_board() {
     let board = Board::init();
     let pos_string: String = String::from("d4");
-    let position = position_helper::letter_to_position_byte(pos_string.clone());
+    let position = position_helper::letter_to_index(pos_string.clone());
     let rook = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + ROOK);
     let possible_positions: HashSet<String> = rook
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
         "The positions from {} for the rook are: {:?}",
@@ -111,12 +98,12 @@ fn test_rook_moves_starting_board() {
     let mut board = Board::init();
     board.set_start_position();
     let pos_string: String = String::from("a1");
-    let position = position_helper::letter_to_position_byte(pos_string.clone());
+    let position = position_helper::letter_to_index(pos_string.clone());
     let rook = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + ROOK);
     let possible_positions: HashSet<String> = rook
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
         "The positions from {} for the rook are: {:?}",
@@ -129,12 +116,12 @@ fn test_rook_moves_starting_board() {
 fn test_bishop_moves_empty_board() {
     let board = Board::init();
     let pos_string: String = String::from("d4");
-    let position = position_helper::letter_to_position_byte(pos_string.clone());
+    let position = position_helper::letter_to_index(pos_string.clone());
     let bishop = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + BISHOP);
     let possible_positions: HashSet<String> = bishop
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
         "The positions from {} for the bishop are: {:?}",
@@ -156,12 +143,12 @@ fn test_bishop_moves_starting_board() {
     let mut board = Board::init();
     board.set_start_position();
     let pos_string: String = String::from("c1");
-    let position = position_helper::letter_to_position_byte(pos_string.clone());
+    let position = position_helper::letter_to_index(pos_string.clone());
     let bishop = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + BISHOP);
     let possible_positions: HashSet<String> = bishop
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
         "The positions from {} for the bishop are: {:?}",
@@ -176,12 +163,12 @@ fn test_queen_moves_starting_board() {
     let mut board = Board::init();
     board.set_start_position();
     let pos_string: String = String::from("c1");
-    let position = position_helper::letter_to_position_byte(pos_string.clone());
+    let position = position_helper::letter_to_index(pos_string.clone());
     let queen = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + QUEEN);
     let possible_positions: HashSet<String> = queen
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
         "The positions from {} for the queen are: {:?}",
@@ -195,12 +182,12 @@ fn test_queen_moves_starting_board() {
 fn test_queen_moves_empty_board() {
     let board = Board::init();
     let pos_string: String = String::from("d4");
-    let position = position_helper::letter_to_position_byte(pos_string.clone());
+    let position = position_helper::letter_to_index(pos_string.clone());
     let queen = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + QUEEN);
     let possible_positions: HashSet<String> = queen
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
         "The positions from {} for the queen are: {:?}",
@@ -222,12 +209,12 @@ fn test_queen_moves_empty_board() {
 fn test_knight_moves_empty_board() {
     let board = Board::init();
     let pos_string: String = String::from("d4");
-    let position = position_helper::letter_to_position_byte(pos_string.clone());
+    let position = position_helper::letter_to_index(pos_string.clone());
     let knight = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + KNIGHT);
     let possible_positions: HashSet<String> = knight
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
         "The positions from {} for the knight are: {:?}",
@@ -247,7 +234,7 @@ fn test_validate_position_in_board() {
     let mut board = Board::init();
     board.set_start_position();
     let final_string: String = String::from("a1");
-    let final_position = position_helper::letter_to_position_byte(final_string.clone());
+    let final_position = position_helper::letter_to_index(final_string.clone());
     let valid_position = position_helper::is_position_valid(final_position, &board, true);
     assert_eq!(valid_position, false);
 }
@@ -377,21 +364,6 @@ fn test_position_start() {
     assert_eq!(black_queen, "q".to_string());
 }
 
-#[test]
-fn test_hashmap_array_parity() {
-    let mut game = Game::init();
-    let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
-    game.set_from_fen(fen.clone());
-    let mut parity = true;
-    for (key, value) in game.board.pieces.iter() {
-        let piece = *value;
-        let piece_from_board = *game.board.pieces.get(&key).unwrap();
-        if piece != piece_from_board {
-            parity = false;
-        }
-    }
-    assert_eq!(parity, true);
-}
 
 #[test]
 fn test_en_passant_flag() {
@@ -425,13 +397,13 @@ fn test_queen_moves_from_fen() {
         a    b    c    d    e    f    g    h
     */
     game.set_from_fen(fen.clone());
-    let initial_position = position_helper::letter_to_position_byte("d1".to_string());
-    let white_queen_bits = game.board.pieces.get(&initial_position).unwrap();
+    let initial_position = position_helper::letter_to_index("d1".to_string());
+    let white_queen_bits = game.board.state.get(initial_position as usize).unwrap();
     let queen = Piece::init_from_binary(*white_queen_bits);
     let possible_positions: HashSet<String> = queen
         .possible_moves(initial_position, &game.board)
         .iter()
-        .map(|x| position_helper::position_byte_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
         "The positions from {} for the queen are: {:?}",

@@ -1,15 +1,14 @@
-use cherris::{self, ChessDebugInfo, ChessGame, Game, position_helper::{self, position_byte_to_letter}};
+use cherris::{self, position_helper::index_to_letter, ChessDebugInfo, ChessGame, Game};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
-use std::sync::{Arc, Mutex};
 use rand::Rng;
+use std::sync::{Arc, Mutex};
 
 lazy_static! {
     static ref GAME: Arc<Mutex<Game>> = Arc::new(Mutex::new(Game::init()));
 }
 
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 #[tauri::command]
 fn set_from_fen(fen: &str) -> String {
     let mut game = GAME.lock().unwrap();
@@ -75,18 +74,16 @@ fn make_random_move() -> String {
     let mut rng = rand::thread_rng();
     let random_index = rng.gen_range(0..moves.len());
     let random_move = moves[random_index];
-    let source = position_byte_to_letter(random_move.source);
-    let target = position_byte_to_letter(random_move.target);
+    let source = index_to_letter(random_move.source);
+    let target = index_to_letter(random_move.target);
 
     game.play_move_ob(random_move);
     game.get_fen_simple()
-
 }
 
 fn main() -> Result<()> {
     color_eyre::install()?;
     let mut board: cherris::Board = cherris::Board::init();
-    board.update_hashmap();
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
