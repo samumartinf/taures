@@ -1,4 +1,4 @@
-use cherris::{self, position_helper::index_to_letter, ChessDebugInfo, ChessGame, Game};
+use cherris::{self, ChessDebugInfo, ChessGame, Game};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
 use rand::Rng;
@@ -19,8 +19,8 @@ fn set_from_fen(fen: &str) -> String {
 #[tauri::command]
 fn play_move(source: &str, target: &str) -> bool {
     let mut game = GAME.lock().unwrap();
-    let allowed_move = game.play_move_from_string(source.to_string(), target.to_string());
-    allowed_move
+    
+    game.play_move_from_string(source.to_string(), target.to_string())
 }
 
 #[tauri::command]

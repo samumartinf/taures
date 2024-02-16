@@ -1,6 +1,4 @@
-use std::{collections::HashMap, vec};
-
-use tauri::{utils::mime_type, UserAttentionType};
+use std::vec;
 
 const PIECE_BIT: u8 = 128u8;
 const WHITE_BIT: u8 = 64u8;
@@ -303,10 +301,8 @@ impl ChessGame for Game {
             }
 
             // Add number of empty slots by end of rank
-            if (i + 1) % 8 == 0 {
-                if empty_count != 0 {
-                    fen_string.push_str(&empty_count.to_string());
-                }
+            if (i + 1) % 8 == 0 && empty_count != 0 {
+                fen_string.push_str(&empty_count.to_string());
             }
 
             // Add '/' at end of rank
@@ -321,13 +317,13 @@ impl ChessGame for Game {
 
     fn play_move(&mut self, source_idx: u8, target_idx: u8) -> bool {
         if self.game_done {
-            let winning_side: String;
-            if self.white_turn {
-                winning_side = "Black".to_string();
+            let winning_side: String = if self.white_turn {
+                "Black".to_string()
             } else {
-                winning_side = "White".to_string();
-            }
-            println!("The Game is done + {winning_side} won");
+                "White".to_string()
+            };
+
+            println!("The Game is done {winning_side} won");
             return false;
         }
 
@@ -336,7 +332,7 @@ impl ChessGame for Game {
 
         // track changes
         let mut pawn_taken = false;
-        let en_passant_set: bool;
+
         let king_moved = false;
         let mut rook_moved = false;
 
@@ -401,7 +397,7 @@ impl ChessGame for Game {
         }
 
         // Set en passant flag
-        en_passant_set = self.set_en_passant_flag(&piece, source_idx, target_idx);
+        let en_passant_set: bool = self.set_en_passant_flag(&piece, source_idx, target_idx);
 
         // Update castling options if rook is moved
         if piece.class == PieceType::Rook {
@@ -559,26 +555,24 @@ impl Piece {
         //check the position to avoid taking on the other side
         let col = position_helper::get_col(source);
 
-        if col < 7 {
-            if board
+        if col < 7
+            && (board
                 .state
                 .get(diagonal_right as usize)
                 .is_some_and(|x| *x != 0u8)
-                || board.en_passant == diagonal_right as u8
-            {
-                possible_positions.push(diagonal_right);
-            }
+                || board.en_passant == diagonal_right as u8)
+        {
+            possible_positions.push(diagonal_right);
         }
 
-        if col > 0 {
-            if board
+        if col > 0
+            && (board
                 .state
                 .get(diagonal_left as usize)
                 .is_some_and(|x| *x != 0u8)
-                || board.en_passant == diagonal_left as u8
-            {
-                possible_positions.push(diagonal_left);
-            }
+                || board.en_passant == diagonal_left as u8)
+        {
+            possible_positions.push(diagonal_left);
         }
 
         let mut final_positions = Vec::new();
@@ -597,7 +591,7 @@ impl Piece {
         let row = position_helper::get_row(position) as i16;
         let col = position_helper::get_col(position) as i16;
         for offset in offsets.iter() {
-            let new_position = (position as i16 + offset);
+            let new_position = position as i16 + offset;
             if (position_helper::get_row(new_position as u8) as i16 - row).abs() > 1
                 || (position_helper::get_col(new_position as u8) as i16 - col).abs() > 1
             {
@@ -799,7 +793,7 @@ impl Piece {
         let col = position_helper::get_col(position) as i16;
 
         for offset in offsets.iter() {
-            let new_position = (position as i16 + offset);
+            let new_position = position as i16 + offset;
             if (position_helper::get_row(new_position as u8) as i16 - row).abs() > 2
                 || (position_helper::get_col(new_position as u8) as i16 - col).abs() > 2
             {
@@ -822,28 +816,14 @@ impl Piece {
 
 impl BasicPiece for Piece {
     fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8> {
-        let possible_positions: Vec<u8>;
-        match self.class {
-            PieceType::Pawn => {
-                possible_positions = Piece::pawn_moves(self.clone(), position, board)
-            }
-            PieceType::King => {
-                possible_positions = Piece::king_moves(self.clone(), position, board)
-            }
-            PieceType::Bishop => {
-                possible_positions = Piece::bishop_moves(self.clone(), position, board)
-            }
-            PieceType::Queen => {
-                possible_positions = Piece::queen_moves(self.clone(), position, board)
-            }
-            PieceType::Rook => {
-                possible_positions = Piece::rook_moves(self.clone(), position, board)
-            }
-            PieceType::Knight => {
-                possible_positions = Piece::knight_moves(self.clone(), position, board)
-            }
-        }
-
+        let possible_positions: Vec<u8> = match self.class {
+            PieceType::Pawn => Piece::pawn_moves(self.clone(), position, board),
+            PieceType::King => Piece::king_moves(self.clone(), position, board),
+            PieceType::Bishop => Piece::bishop_moves(self.clone(), position, board),
+            PieceType::Queen => Piece::queen_moves(self.clone(), position, board),
+            PieceType::Rook => Piece::rook_moves(self.clone(), position, board),
+            PieceType::Knight => Piece::knight_moves(self.clone(), position, board),
+        };
         possible_positions
     }
 
@@ -871,13 +851,11 @@ impl BasicPiece for Piece {
 
     fn text_repr(&self) -> String {
         let mut return_string = String::from("");
-        let color_string: String;
-
-        if self.is_white {
-            color_string = String::from("w");
+        let color_string: String = if self.is_white {
+            String::from("w")
         } else {
-            color_string = String::from("b");
-        }
+            String::from("b")
+        };
 
         let piece_string = match self.class {
             PieceType::Pawn => "P".to_string(),
@@ -985,7 +963,7 @@ impl Board {
         if self.castling & 1u8 == 1u8 {
             castling_fen.push('q');
         }
-        if castling_fen == "" {
+        if castling_fen.is_empty() {
             castling_fen.push('-');
         }
         castling_fen

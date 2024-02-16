@@ -45,7 +45,7 @@ fn test_pawn_cannot_take_in_front() {
     let mut game = Game::init();
     game.set_from_fen(fen_string);
     let allowed_move = game.play_move_from_string("e4".to_string(), "e5".to_string());
-    assert_eq!(allowed_move, false);
+    assert!(!allowed_move);
 }
 
 #[test]
@@ -82,14 +82,12 @@ fn test_rook_moves_empty_board() {
         "The positions from {} for the rook are: {:?}",
         pos_string, possible_positions
     );
-    let correct_position: HashSet<String> = HashSet::from(
-        [
-            "a4", "b4", "c4", "d1", "d2", "d3", "d5", "d6", "d7", "d8", "e4", "f4", "g4", "h4",
-        ]
-        .iter()
-        .map(|&x| String::from(x))
-        .collect::<HashSet<String>>(),
-    );
+    let correct_position: HashSet<String> = [
+        "a4", "b4", "c4", "d1", "d2", "d3", "d5", "d6", "d7", "d8", "e4", "f4", "g4", "h4",
+    ]
+    .iter()
+    .map(|&x| String::from(x))
+    .collect::<HashSet<String>>();
     assert_eq!(possible_positions, correct_position);
 }
 
@@ -127,14 +125,12 @@ fn test_bishop_moves_empty_board() {
         "The positions from {} for the bishop are: {:?}",
         pos_string, possible_positions
     );
-    let correct_position: HashSet<String> = HashSet::from(
-        [
-            "a1", "a7", "b2", "b6", "c3", "c5", "e3", "e5", "f2", "f6", "g1", "g7", "h8",
-        ]
-        .iter()
-        .map(|&x| String::from(x))
-        .collect::<HashSet<String>>(),
-    );
+    let correct_position: HashSet<String> = [
+        "a1", "a7", "b2", "b6", "c3", "c5", "e3", "e5", "f2", "f6", "g1", "g7", "h8",
+    ]
+    .iter()
+    .map(|&x| String::from(x))
+    .collect::<HashSet<String>>();
     assert_eq!(possible_positions, correct_position);
 }
 
@@ -193,15 +189,13 @@ fn test_queen_moves_empty_board() {
         "The positions from {} for the queen are: {:?}",
         pos_string, possible_positions
     );
-    let correct_position: HashSet<String> = HashSet::from(
-        [
-            "a1", "a4", "a7", "b2", "b4", "b6", "c3", "c4", "c5", "d1", "d2", "d3", "d5", "d6",
-            "d7", "d8", "e3", "e4", "e5", "f2", "f4", "f6", "g1", "g4", "g7", "h4", "h8",
-        ]
-        .iter()
-        .map(|&x| String::from(x))
-        .collect::<HashSet<String>>(),
-    );
+    let correct_position: HashSet<String> = [
+        "a1", "a4", "a7", "b2", "b4", "b6", "c3", "c4", "c5", "d1", "d2", "d3", "d5", "d6", "d7",
+        "d8", "e3", "e4", "e5", "f2", "f4", "f6", "g1", "g4", "g7", "h4", "h8",
+    ]
+    .iter()
+    .map(|&x| String::from(x))
+    .collect::<HashSet<String>>();
     assert_eq!(possible_positions, correct_position);
 }
 
@@ -220,12 +214,32 @@ fn test_knight_moves_empty_board() {
         "The positions from {} for the knight are: {:?}",
         pos_string, possible_positions
     );
-    let correct_position: HashSet<String> = HashSet::from(
-        ["b3", "b5", "c2", "c6", "e2", "e6", "f3", "f5"]
-            .iter()
-            .map(|&x| String::from(x))
-            .collect::<HashSet<String>>(),
+    let correct_position: HashSet<String> = ["b3", "b5", "c2", "c6", "e2", "e6", "f3", "f5"]
+        .iter()
+        .map(|&x| String::from(x))
+        .collect::<HashSet<String>>();
+    assert_eq!(possible_positions, correct_position);
+}
+
+#[test]
+fn test_knight_move_edge_board() {
+    let board = Board::init();
+    let pos_string: String = String::from("a1");
+    let position = position_helper::letter_to_index(pos_string.clone());
+    let knight = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + KNIGHT);
+    let possible_positions: HashSet<String> = knight
+        .possible_moves(position, &board)
+        .iter()
+        .map(|x| position_helper::index_to_letter(*x))
+        .collect();
+    println!(
+        "The positions from {} for the knight are: {:?}",
+        pos_string, possible_positions
     );
+    let correct_position: HashSet<String> = ["b3", "c2"]
+        .iter()
+        .map(|&x| String::from(x))
+        .collect::<HashSet<String>>();
     assert_eq!(possible_positions, correct_position);
 }
 
@@ -236,7 +250,7 @@ fn test_validate_position_in_board() {
     let final_string: String = String::from("a1");
     let final_position = position_helper::letter_to_index(final_string.clone());
     let valid_position = position_helper::is_position_valid(final_position, &board, true);
-    assert_eq!(valid_position, false);
+    assert!(!valid_position);
 }
 
 #[test]
@@ -292,7 +306,7 @@ fn test_take_with_black_pawn() {
     let mut game = Game::init();
     game.set_from_fen(fen.clone());
     let allowed_move = game.play_move_from_string("d5".to_string(), "e4".to_string());
-    assert_eq!(allowed_move, true);
+    assert!(allowed_move);
 }
 
 #[test]
@@ -301,7 +315,7 @@ fn test_undo_move() {
     let mut game = Game::init();
     game.set_from_fen(fen.clone());
     let allowed_move = game.play_move_from_string("d5".to_string(), "e4".to_string());
-    assert_eq!(allowed_move, true);
+    assert!(allowed_move);
     game.undo_move();
     let fen2 = game.get_fen();
     assert_eq!(fen2, fen);
@@ -314,7 +328,7 @@ fn test_queen_in_position() {
     game.set_from_fen(fen.clone());
     game.board.show();
     let allowed_move = game.play_move_from_string("d8".to_string(), "d6".to_string());
-    assert_eq!(allowed_move, true);
+    assert!(allowed_move);
 }
 
 #[test]
@@ -325,7 +339,7 @@ fn test_en_passant_take() {
     game.play_move_from_string("e4".to_string(), "e5".to_string());
     game.play_move_from_string("d7".to_string(), "d5".to_string());
     let valid_move = game.play_move_from_string("e5".to_string(), "d6".to_string());
-    assert_eq!(true, valid_move);
+    assert!(valid_move);
 }
 
 #[test]
@@ -340,14 +354,14 @@ fn test_fen_serde() {
 #[test]
 fn test_binary_to_piece() {
     let piece = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + KING);
-    assert_eq!(piece.is_white, true);
+    assert!(piece.is_white);
     assert_eq!(piece.class, PieceType::King);
 }
 
 #[test]
 fn test_binary_to_piece_queen() {
     let piece = Piece::init_from_binary(PIECE_BIT + WHITE_BIT + QUEEN);
-    assert_eq!(piece.is_white, true);
+    assert!(piece.is_white);
     assert_eq!(piece.class, PieceType::Queen);
 }
 
@@ -405,15 +419,13 @@ fn test_queen_moves_from_fen() {
         .map(|x| position_helper::index_to_letter(*x))
         .collect();
     println!(
-        "The positions from {} for the queen are: {:?}",
-        "d1", possible_positions
+        "The positions from d1 for the queen are: {:?}",
+        possible_positions
     );
-    let correct_position: HashSet<String> = HashSet::from(
-        ["d2", "d3"]
-            .iter()
-            .map(|&x| String::from(x))
-            .collect::<HashSet<String>>(),
-    );
+    let correct_position: HashSet<String> = ["d2", "d3"]
+        .iter()
+        .map(|&x| String::from(x))
+        .collect::<HashSet<String>>();
     assert_eq!(PIECE_BIT + WHITE_BIT + QUEEN, *white_queen_bits);
     assert_eq!(possible_positions, correct_position);
 }
