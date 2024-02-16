@@ -15,12 +15,19 @@ const ROW: u8 = 8u8;
 const COL: u8 = 1u8;
 
 #[derive(Debug, Clone)]
+/// Represents a game of chess.
 pub struct Game {
+    /// Indicates whether it is currently white's turn to move.
     pub white_turn: bool,
+    /// Represents the previous FEN positions of the game.
     previous_fen_positions: Vec<String>,
+    /// Represents the chess board.
     pub board: Board,
+    /// Indicates whether the game is done.
     game_done: bool,
-    castling_options: Vec<char>,
+    /// Represents the en passant square, if any. The options are:
+    /// - A square (i.e. "e3")
+    /// - A dash ("-") if there is no en passant square
     pub en_passant: String,
     half_move_clock: i32,
     full_move_number: i32,
@@ -65,7 +72,6 @@ impl Game {
             previous_fen_positions: vec![],
             board,
             game_done: false,
-            castling_options: vec!['K', 'Q', 'k', 'q'],
             en_passant: "-".to_string(),
             half_move_clock: 0i32,
             full_move_number: 1i32,
@@ -138,11 +144,11 @@ impl ChessGame for Game {
         }
 
         let piece = Piece::init_from_binary(*piece_opt.unwrap());
-        return piece
+        piece
             .possible_moves(position_index, &self.board)
             .iter()
             .map(|x| position_helper::index_to_letter(*x))
-            .collect();
+            .collect()
     }
 
     fn undo_move(&mut self) {
@@ -161,7 +167,6 @@ impl ChessGame for Game {
         self.previous_fen_positions = vec![];
         self.board = board;
         self.game_done = false;
-        self.castling_options = vec!['K', 'Q', 'k', 'q'];
         self.en_passant = "-".to_string();
         self.half_move_clock = 0i32;
         self.full_move_number = 1i32;
@@ -230,10 +235,15 @@ impl ChessGame for Game {
         // Set the turn
         self.white_turn = turn == "w";
 
-        // Set the castling options
-        self.castling_options = vec![];
+        // Set castling options for board
         for c in castling_options.chars() {
-            self.castling_options.push(c);
+            match c {
+                'K' => self.board.castling |= 8u8,
+                'Q' => self.board.castling |= 4u8,
+                'k' => self.board.castling |= 2u8,
+                'q' => self.board.castling |= 1u8,
+                _ => (),
+            }
         }
 
         // Set the en passant
@@ -257,9 +267,8 @@ impl ChessGame for Game {
         }
 
         // Append the castling options
-        for option in &self.castling_options {
-            fen_string.push_str(&option.to_string());
-        }
+        fen_string.push_str(&self.board.get_castling_fen());
+
         fen_string.push(' ');
 
         // Append the en passant
@@ -322,9 +331,14 @@ impl ChessGame for Game {
             return false;
         }
 
+        // Get the piece at the source index
         let piece_bits = self.board.state.get(source_idx as usize).unwrap_or(&0u8);
+
+        // track changes
         let mut pawn_taken = false;
         let en_passant_set: bool;
+        let king_moved = false;
+        let mut rook_moved = false;
 
         if piece_bits == &0u8 {
             return false;
@@ -340,56 +354,85 @@ impl ChessGame for Game {
 
         let possible_moves = piece.possible_moves(source_idx, &self.board);
         // TODO: ensure these moves are actually legal, not just "pseudo legal"
-        if possible_moves.contains(&target_idx) {
-            // Update the previous positions vector
-            let previous_fen = self.get_fen();
 
-            // Take piece
-            let taken_piece = self.board.state.get(target_idx as usize);
-            let t_piece = taken_piece.unwrap_or(&0u8);
-            if *t_piece != 0 {
-                //TODO: store the piece taken and give rewards
-                // TODO: This can be sped up by using the binary representation of the piece
-                let taken_p = Piece::init_from_binary(*t_piece);
-                if taken_p.class == PieceType::King {
-                    self.game_done = true;
-                    println!("GG wp");
-                }
-                if taken_p.class == PieceType::Pawn {
-                    pawn_taken = true;
-                }
-            }
-
-            // Set en passant flag
-            en_passant_set = self.set_en_passant_flag(&piece, source_idx, target_idx);
-
-            // Manage en passant taking
-            self.en_passant_taking(&piece, target_idx);
-
-            // update the board
-            self.update_board_object(&piece, source_idx, target_idx, en_passant_set);
-            self.previous_fen_positions.push(previous_fen);
-
-            self.white_turn = !self.white_turn;
-
-            //update the half move clock
-            if piece.class == PieceType::Pawn || pawn_taken {
-                self.half_move_clock = 0;
-            } else {
-                self.half_move_clock += 1;
-            }
-
-            // update full move count
-            // TODO: ensure this generates the correct full move count
-            if self.white_turn {
-                self.full_move_number += 1;
-            }
-
-            return true;
-        } else {
+        // Early return if the move is not possible
+        if !possible_moves.contains(&target_idx) {
             println!("This move is not valid");
+            return false;
         }
-        false
+
+        // Move must be possible - continue
+        // Update the previous positions vector
+        let previous_fen = self.get_fen();
+
+        // Take piece
+        let taken_piece = self.board.state.get(target_idx as usize);
+        let t_piece = taken_piece.unwrap_or(&0u8);
+        if *t_piece != 0 {
+            //TODO: store the piece taken and give rewards
+            // TODO: This can be sped up by using the binary representation of the piece
+            let taken_p = Piece::init_from_binary(*t_piece);
+            if taken_p.class == PieceType::King {
+                self.game_done = true;
+                println!("GG wp");
+            }
+            if taken_p.class == PieceType::Pawn {
+                pawn_taken = true;
+            }
+        }
+
+        // Handle castling
+        if piece.class == PieceType::King {
+            let difference = target_idx as i32 - source_idx as i32;
+            if difference.abs() == 2 {
+                let king_side = difference > 0;
+                if king_side {
+                    let rook_pos = if piece.is_white { 63 } else { 7 };
+                    let rook = Piece::init_from_binary(self.board.state[rook_pos as usize]);
+                    self.update_board_object(&rook, rook_pos, rook_pos - 2, false);
+                } else {
+                    let rook_pos = if piece.is_white { 56 } else { 0 };
+                    let rook = Piece::init_from_binary(self.board.state[rook_pos as usize]);
+                    self.update_board_object(&rook, rook_pos, rook_pos + 3, false);
+                }
+            }
+            // set castling options
+            self.set_castling_options(true, true, true);
+        }
+
+        // Set en passant flag
+        en_passant_set = self.set_en_passant_flag(&piece, source_idx, target_idx);
+
+        // Update castling options if rook is moved
+        if piece.class == PieceType::Rook {
+            let is_kingside = position_helper::get_col(source_idx) == 7;
+            rook_moved = true;
+            self.set_castling_options(is_kingside, king_moved, rook_moved);
+        }
+
+        // Manage en passant taking
+        self.en_passant_taking(&piece, target_idx);
+
+        // update the board
+        self.update_board_object(&piece, source_idx, target_idx, en_passant_set);
+        self.previous_fen_positions.push(previous_fen);
+
+        self.white_turn = !self.white_turn;
+
+        //update the half move clock
+        if piece.class == PieceType::Pawn || pawn_taken {
+            self.half_move_clock = 0;
+        } else {
+            self.half_move_clock += 1;
+        }
+
+        // update full move count
+        // TODO: ensure this generates the correct full move count
+        if self.white_turn {
+            self.full_move_number += 1;
+        }
+
+        true
     }
 }
 
@@ -411,6 +454,28 @@ impl Game {
             }
         }
         en_passant_set
+    }
+
+    fn set_castling_options(&mut self, is_kingside: bool, king_moved: bool, rook_moved: bool) {
+        if self.white_turn {
+            if king_moved {
+                self.board.castling &= 0b1111_0011;
+            }
+            if rook_moved & is_kingside {
+                self.board.castling &= 0b1111_0111;
+            } else if rook_moved & !is_kingside {
+                self.board.castling &= 0b1111_1011;
+            }
+        } else {
+            if king_moved {
+                self.board.castling &= 0b1111_1100;
+            }
+            if rook_moved && is_kingside {
+                self.board.castling &= 0b1111_1101;
+            } else if rook_moved & !is_kingside {
+                self.board.castling &= 0b1111_1110;
+            }
+        }
     }
 
     fn en_passant_taking(&mut self, piece: &Piece, target_idx: u8) {
@@ -456,14 +521,14 @@ pub enum PieceType {
 }
 
 impl Piece {
-    fn pawn_moves(self, position: u8, board: &Board) -> Vec<u8> {
+    fn pawn_moves(self, source: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::new();
 
         // White pawns move in the negative direction
         let multiplier: i16 = if self.is_white { -1 } else { 1 };
-        let one_row = (position as i16) + multiplier * (ROW as i16);
-        let two_rows = (position as i16) + multiplier * (ROW as i16) * 2;
-        
+        let one_row = (source as i16) + multiplier * (ROW as i16);
+        let two_rows = (source as i16) + multiplier * (ROW as i16) * 2;
+
         let move_double_forward = if self.is_white { 6 } else { 1 };
 
         if board
@@ -474,7 +539,7 @@ impl Piece {
             possible_positions.push(one_row);
         }
 
-        if move_double_forward == position_helper::get_row(position)
+        if move_double_forward == position_helper::get_row(source)
             && board
                 .state
                 .get((two_rows) as usize)
@@ -488,11 +553,11 @@ impl Piece {
         }
 
         //Handle taking pieces
-        let diagonal_right = (position as i16) + multiplier * (ROW as i16) + (COL as i16);
-        let diagonal_left = (position as i16) + multiplier * (ROW as i16) - (COL as i16);
+        let diagonal_right = (source as i16) + multiplier * (ROW as i16) + (COL as i16);
+        let diagonal_left = (source as i16) + multiplier * (ROW as i16) - (COL as i16);
 
         //check the position to avoid taking on the other side
-        let col = position_helper::get_col(position);
+        let col = position_helper::get_col(source);
 
         if col < 7 {
             if board
@@ -543,13 +608,72 @@ impl Piece {
             }
         }
 
+        // Handle castling
+        possible_positions.append(&mut self.castling_moves(position, board));
+
         possible_positions
     }
 
-    fn rook_moves(self, position: u8, board: &Board) -> Vec<u8> {
+    fn castling_moves(self, source: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::<u8>::new();
-        let row = position_helper::get_row(position);
-        let col = position_helper::get_col(position);
+        let mut king_side = false;
+        let mut queen_side = false;
+
+        if self.is_white {
+            if board.castling & 8u8 == 8u8 {
+                king_side = true;
+            }
+            if board.castling & 4u8 == 4u8 {
+                queen_side = true;
+            }
+        } else {
+            if board.castling & 2u8 == 2u8 {
+                king_side = true;
+            }
+            if board.castling & 1u8 == 1u8 {
+                queen_side = true;
+            }
+        }
+
+        if king_side {
+            let mut blocked = false;
+            for i in 1..2 {
+                let position_to_check = source + i;
+                blocked = board.state[position_to_check as usize] != 0u8;
+                if blocked {
+                    break;
+                }
+            }
+            let piece_at_rook = board.state[(source + 3) as usize];
+            let rook = Piece::init_from_binary(piece_at_rook);
+            if !blocked && rook.class == PieceType::Rook {
+                possible_positions.push(source + 2);
+            }
+        }
+
+        if queen_side {
+            let mut blocked = false;
+            for i in 1..3 {
+                let position_to_check = source - i;
+                blocked = board.state[position_to_check as usize] != 0u8;
+                if blocked {
+                    break;
+                }
+            }
+            let piece_at_rook = board.state[(source - 4) as usize];
+            let rook = Piece::init_from_binary(piece_at_rook);
+            if !blocked && rook.class == PieceType::Rook {
+                possible_positions.push(source - 2);
+            }
+        }
+
+        possible_positions
+    }
+
+    fn rook_moves(self, source: u8, board: &Board) -> Vec<u8> {
+        let mut possible_positions = Vec::<u8>::new();
+        let row = position_helper::get_row(source);
+        let col = position_helper::get_col(source);
 
         let mut blocked_right: bool = false;
         let mut blocked_up: bool = false;
@@ -560,38 +684,38 @@ impl Piece {
         for i in 1..8 {
             if col + i < 8 && !blocked_right {
                 // check right boundary
-                let position_to_check = position + i;
+                let position_to_check = source + i;
                 let piece_retrieved = board.state.get(position_to_check as usize);
 
                 // If a piece is found, we are now blocked from moving forward
                 blocked_right = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(position + i);
+                possible_positions.push(source + i);
             }
             if i <= col && !blocked_left {
                 // check left boundary
-                let position_to_check = position - i;
+                let position_to_check = source - i;
                 let piece_retrieved = board.state.get(position_to_check as usize);
 
                 // If a piece is found, we are now blocked from moving forward
                 blocked_left = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(position - i);
+                possible_positions.push(source - i);
             }
             if row + i < 8 && !blocked_down {
                 // check lower boundary
-                let position_to_check = position + ROW * i;
+                let position_to_check = source + ROW * i;
                 let piece_retrieved = board.state.get(position_to_check as usize);
 
                 // If a piece is found, we are now blocked from moving forward
                 blocked_down = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(position + ROW * i);
+                possible_positions.push(source + ROW * i);
             }
             if i <= row && !blocked_up {
                 // check upper boundary
-                let position_to_check = position - ROW * i;
+                let position_to_check = source - ROW * i;
                 let piece_retrieved = board.state.get(position_to_check as usize);
 
                 blocked_up = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(position - ROW * i);
+                possible_positions.push(source - ROW * i);
             }
         }
 
@@ -793,12 +917,30 @@ pub trait BasicPiece {
 }
 
 #[derive(Debug, Clone)]
+/// Represents a chess board.
 pub struct Board {
-    pub state: [u8; 64],     // arr[index] = pieceByte
-    pub bitboard: [u64; 12], // 0-5 white, 6-11 black (unsured atm)
+    /// The state of the chess board represented as an array of 64 bytes.
+    /// Each index corresponds to a square on the board, and the value represents the piece on that square.
+    pub state: [u8; 64],
+
+    /// The bitboard representation of the chess board.
+    /// The first 6 elements (0-5) represent the white pieces, and the next 6 elements (6-11) represent the black pieces.
+    pub bitboard: [u64; 12],
+
+    /// The hash value of the current board position.
     pub hash: u64,
-    pub en_passant: u8, // 0000 0000 or the position
-    pub castling: u8,   // 8 = K, 4 = Q, 2 = k, 1 = q
+
+    /// The en passant square on the board.
+    /// If no en passant square is available, it is set to 0.
+    pub en_passant: u8,
+
+    /// The castling rights of the players.
+    /// The value is a bitmask where:
+    /// - Bit 3 (8) represents white kingside castling (K)
+    /// - Bit 2 (4) represents white queenside castling (Q)
+    /// - Bit 1 (2) represents black kingside castling (k)
+    /// - Bit 0 (1) represents black queenside castling (q)
+    pub castling: u8,
 }
 
 impl Board {
@@ -827,6 +969,26 @@ impl Board {
             println!("  |----|----|----|----|----|----|----|----|");
         }
         println!("    a    b    c    d    e    f    g    h  ");
+    }
+
+    pub fn get_castling_fen(&self) -> String {
+        let mut castling_fen = String::from("");
+        if self.castling & 8u8 == 8u8 {
+            castling_fen.push('K');
+        }
+        if self.castling & 4u8 == 4u8 {
+            castling_fen.push('Q');
+        }
+        if self.castling & 2u8 == 2u8 {
+            castling_fen.push('k');
+        }
+        if self.castling & 1u8 == 1u8 {
+            castling_fen.push('q');
+        }
+        if castling_fen == "" {
+            castling_fen.push('-');
+        }
+        castling_fen
     }
 
     pub fn init() -> Self {

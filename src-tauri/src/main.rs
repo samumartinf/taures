@@ -74,8 +74,6 @@ fn make_random_move() -> String {
     let mut rng = rand::thread_rng();
     let random_index = rng.gen_range(0..moves.len());
     let random_move = moves[random_index];
-    let source = index_to_letter(random_move.source);
-    let target = index_to_letter(random_move.target);
 
     game.play_move_ob(random_move);
     game.get_fen_simple()
@@ -83,7 +81,6 @@ fn make_random_move() -> String {
 
 fn main() -> Result<()> {
     color_eyre::install()?;
-    let mut board: cherris::Board = cherris::Board::init();
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![

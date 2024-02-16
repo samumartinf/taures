@@ -6,8 +6,8 @@ let greetMsgEl: HTMLElement | null;
 
 var config = {
   draggable: true,
-  moveSpeed: "slow",
-  snapbackSpeed: 500,
+  moveSpeed: "fast",
+  snapbackSpeed: 100,
   snapSpeed: 100,
   onSnapEnd: onSnapEnd,
   position: "start",
@@ -46,7 +46,7 @@ async function onDragStart2(source: string, piece, position, orientation) {
   // Update debugInfoBoard and debugInfoEngine labels
   document.getElementById("debugLabelBoard").innerText =
     "Board FEN: " + fen + ", Piece: " + piece;
-  var fenFromEngine: string = await invoke("get_fen_simple");
+  var fenFromEngine: string = await invoke("get_fen");
   var enginePiece = await invoke("get_piece_at_square", { square: source });
 
   document.getElementById("debugLabelEngine").innerText =
