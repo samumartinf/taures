@@ -320,7 +320,7 @@ fn test_queen_in_position() {
 #[test]
 fn test_en_passant_take() {
     let mut game = Game::init();
-    game.play_move_from_string("e2".to_string(),"e4".to_string());
+    game.play_move_from_string("e2".to_string(), "e4".to_string());
     game.play_move_from_string("a7".to_string(), "a6".to_string());
     game.play_move_from_string("e4".to_string(), "e5".to_string());
     game.play_move_from_string("d7".to_string(), "d5".to_string());
@@ -363,7 +363,6 @@ fn test_position_start() {
     assert_eq!(black_king, "k".to_string());
     assert_eq!(black_queen, "q".to_string());
 }
-
 
 #[test]
 fn test_en_passant_flag() {
@@ -410,13 +409,11 @@ fn test_queen_moves_from_fen() {
         "d1", possible_positions
     );
     let correct_position: HashSet<String> = HashSet::from(
-        [
-            "d2", "d3"
-        ]
-        .iter()
-        .map(|&x| String::from(x))
-        .collect::<HashSet<String>>(),
+        ["d2", "d3"]
+            .iter()
+            .map(|&x| String::from(x))
+            .collect::<HashSet<String>>(),
     );
-    assert_eq!(PIECE_BIT+WHITE_BIT+QUEEN, *white_queen_bits);
+    assert_eq!(PIECE_BIT + WHITE_BIT + QUEEN, *white_queen_bits);
     assert_eq!(possible_positions, correct_position);
 }
