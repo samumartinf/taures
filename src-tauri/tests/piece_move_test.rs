@@ -12,6 +12,22 @@ const ROOK: u8 = 6u8;
 // const ROW: u8 = 16u8;
 // const COL: u8 = 1u8;
 
+use crate::position_helper;
+use cherris::board::Board;
+use cherris::piece::{BasicPiece, Piece, PieceType};
+use cherris::engine::Engine;
+
+#[test]
+fn test_engine() {
+    let mut engine = Engine::init();
+    let fen = "rnbqkbnr/pp3ppp/2p1P3/8/8/8/PPPP1PPP/RNBQKBNR w KQkq - 4 1".to_string();
+    engine.game.set_from_fen(fen.clone());
+    let best_move = engine.search(1);
+    let allowed_move = engine.game.play_move_ob(&best_move);
+    assert!(allowed_move);
+
+}
+
 #[test]
 fn test_index_to_letters() {
     let cell = position_helper::index_to_letter(3u8);

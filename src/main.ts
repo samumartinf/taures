@@ -1,8 +1,6 @@
 import { invoke } from "@tauri-apps/api/tauri";
 declare var $: any; // for jQuery
 declare var Chessboard: any; // for chessboard.js
-let greetInputEl: HTMLInputElement | null;
-let greetMsgEl: HTMLElement | null;
 
 var config = {
   draggable: true,
@@ -32,36 +30,55 @@ function pieceTheme(piece: string) {
 async function onDragStart(source, piece, position, orientation) {
   var fen: string = board.fen();
   // Update debugInfoBoard and debugInfoEngine labels
-  document.getElementById("debugLabelBoard").innerText =
-    "Board FEN: " + fen + ", Piece: " + piece;
+  var debugLabelBoard = document.getElementById("debugLabelBoard");
+  if (debugLabelBoard) {
+    debugLabelBoard.innerText = "Board FEN: " + fen + ", Piece: " + piece;
+  }
   var fenFromEngine: string = await invoke("get_fen_simple");
   var enginePiece = await invoke("get_piece_at_square", { square: source });
 
-  document.getElementById("debugLabelEngine").innerText =
-    "Engine FEN: " + fenFromEngine + ", Piece: " + enginePiece;
+  var debugLabelEngine = document.getElementById("debugLabelEngine");
+  if (debugLabelEngine) {
+    debugLabelEngine.innerText = "Engine FEN: " + fenFromEngine + ", Piece: " + enginePiece;
+  }
 }
 
 async function onDragStart2(source: string, piece, position, orientation) {
   var fen: string = board.fen();
   // Update debugInfoBoard and debugInfoEngine labels
-  document.getElementById("debugLabelBoard").innerText =
-    "Board FEN: " + fen + ", Piece: " + piece;
+  var debugLabelBoard = document.getElementById("debugLabelBoard");
+  if (debugLabelBoard) {
+    debugLabelBoard.innerText =
+      "Board FEN: " + fen + ", Piece: " + piece;
+  }
+
   var fenFromEngine: string = await invoke("get_fen");
   var enginePiece = await invoke("get_piece_at_square", { square: source });
 
-  document.getElementById("debugLabelEngine").innerText =
-    "Engin FEN: " + fenFromEngine + ", Piece: " + enginePiece;
+  var debugLabelEngine = document.getElementById("debugLabelEngine");
+  if (debugLabelEngine) {
+    debugLabelEngine.innerText =
+      "Engin FEN: " + fenFromEngine + ", Piece: " + enginePiece;
+  }
 
   var possible_moves_from_engine: [string] = await invoke(
     "get_possible_moves",
-    { source: source }
+    { source: source },
   );
-  document.getElementById("allowedMoves").innerText =
-    "Allowed movez: " + possible_moves_from_engine;
+  var allowedMovesEl = document.getElementById("allowedMoves");
+  if (allowedMovesEl) {
+    allowedMovesEl.innerText = "Allowed movez: " + possible_moves_from_engine;
+  }
 }
 
 async function makeRandomMove() {
   var newFen: string = await invoke("make_random_move");
+  board.position(newFen);
+}
+
+async function makeBestMove() {
+  console.log("Making best move");
+  var newFen: string = await invoke("play_best_move", { depth: 7 });
   board.position(newFen);
 }
 
@@ -87,9 +104,8 @@ async function onDrop(
   piece: string,
   newPos,
   oldPos,
-  orientation
+  orientation,
 ) {
-  var fen: string = await invoke("get_fen_simple");
 
   // Check if move is legal
   var move: boolean = await invoke("play_move", {
@@ -114,4 +130,5 @@ window.addEventListener("DOMContentLoaded", () => {
   $("#getFenBtn").on("click", getFen);
   $("#showPositionBtn").on("click", showPosition);
   $("#randomMoveBtn").on("click", makeRandomMove);
+  $("#bestMoveBtn").on("click", makeBestMove);
 });

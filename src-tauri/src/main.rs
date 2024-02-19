@@ -1,4 +1,4 @@
-use cherris::{self, ChessDebugInfo, ChessGame, Game};
+use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame, Game};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
 use rand::Rng;
@@ -75,7 +75,20 @@ fn make_random_move() -> String {
     let random_index = rng.gen_range(0..moves.len());
     let random_move = moves[random_index];
 
-    game.play_move_ob(random_move);
+    game.play_move_ob(&random_move);
+    game.get_fen_simple()
+}
+
+#[tauri::command]
+fn play_best_move(depth: i32) -> String {
+    println!("Playing best move with depth: {}", depth);
+    let mut game = GAME.lock().unwrap();
+    let mut engine = Engine::init_from_game(game.clone());
+    let best_move = engine.search(depth as u8);
+    let source_square = position_helper::index_to_letter(best_move.source);
+    let target_square = position_helper::index_to_letter(best_move.target);
+    println!("The best move was {} to {}", source_square, target_square);
+    game.play_move_ob(&best_move);
     game.get_fen_simple()
 }
 
@@ -94,6 +107,7 @@ fn main() -> Result<()> {
             get_possible_moves,
             get_position_string,
             make_random_move,
+            play_best_move,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

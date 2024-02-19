@@ -1,5 +1,10 @@
 use std::vec;
 
+pub mod board;
+pub mod piece;
+
+use board::Board;
+use piece::{BasicPiece, Piece, PieceType};
 const PIECE_BIT: u8 = 128u8;
 const WHITE_BIT: u8 = 64u8;
 const PAWN_BIT: u8 = 8u8;
@@ -34,7 +39,7 @@ pub struct Game {
 pub trait ChessGame {
     fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool;
     fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool;
-    fn play_move_ob(&mut self, chess_move: Move) -> bool;
+    fn play_move_ob(&mut self, chess_move: &Move) -> bool;
     fn get_fen(&self) -> String;
     fn set_from_fen(&mut self, fen: String);
     fn get_fen_simple(&self) -> String;
@@ -43,6 +48,7 @@ pub trait ChessGame {
     fn get_pseudolegal_moves(&self, position: String) -> Vec<String>;
     fn get_all_moves(&self) -> Vec<Move>;
     fn get_all_moves_for_color(&self, white: bool) -> Vec<Move>;
+    fn get_capture_moves(&self) -> Vec<Move>;
 }
 
 pub trait ChessDebugInfo {
@@ -110,6 +116,30 @@ impl ChessGame for Game {
         moves
     }
 
+    fn get_capture_moves(&self) -> Vec<Move> {
+        let mut moves = vec![];
+
+        for square in 0..64 {
+            let piece = self.board.state[square];
+            if piece == 0 {
+                continue;
+            }
+            let piece = Piece::init_from_binary(piece);
+            let possible_moves = piece.possible_moves(square as u8, &self.board.clone());
+            for move_position in possible_moves {
+                let target_piece = self.board.state[move_position as usize];
+                if target_piece != 0 {
+                    moves.push(Move {
+                        source: square as u8,
+                        target: move_position,
+                        promotion: 0u8,
+                    })
+                }
+            }
+        }
+        moves
+    }
+
     fn get_all_moves_for_color(&self, white: bool) -> Vec<Move> {
         let mut moves = vec![];
 
@@ -170,7 +200,7 @@ impl ChessGame for Game {
         self.full_move_number = 1i32;
     }
 
-    fn play_move_ob(&mut self, chess_move: Move) -> bool {
+    fn play_move_ob(&mut self, chess_move: &Move) -> bool {
         self.play_move(chess_move.source, chess_move.target)
     }
 
@@ -246,6 +276,11 @@ impl ChessGame for Game {
 
         // Set the en passant
         self.en_passant = en_passant.to_string();
+        if en_passant != "-" {
+            self.board.en_passant = position_helper::letter_to_index(en_passant.to_string());
+        } else {
+            self.board.en_passant = 0;
+        }
 
         // Set the half move clock
         self.half_move_clock = half_move_clock.parse::<i32>().unwrap();
@@ -270,7 +305,12 @@ impl ChessGame for Game {
         fen_string.push(' ');
 
         // Append the en passant
-        fen_string.push_str(&self.en_passant);
+        if self.board.en_passant == 0 {
+            fen_string.push_str("-");
+        } else {
+            let en_passant = position_helper::index_to_letter(self.board.en_passant);
+            fen_string.push_str(&en_passant);
+        }
         fen_string.push(' ');
 
         // Append the half move clock
@@ -323,7 +363,6 @@ impl ChessGame for Game {
                 "White".to_string()
             };
 
-            println!("The Game is done {winning_side} won");
             return false;
         }
 
@@ -344,7 +383,6 @@ impl ChessGame for Game {
 
         // Check if turn is correct
         if piece.is_white != self.white_turn {
-            println!("It is not your turn!");
             return false;
         }
 
@@ -353,7 +391,6 @@ impl ChessGame for Game {
 
         // Early return if the move is not possible
         if !possible_moves.contains(&target_idx) {
-            println!("This move is not valid");
             return false;
         }
 
@@ -499,533 +536,6 @@ impl Game {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Piece {
-    pub binary: u8,
-    pub is_white: bool,
-    pub class: PieceType,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum PieceType {
-    Pawn,
-    Rook,
-    Knight,
-    Bishop,
-    Queen,
-    King,
-}
-
-impl Piece {
-    fn pawn_moves(self, source: u8, board: &Board) -> Vec<u8> {
-        let mut possible_positions = Vec::new();
-
-        // White pawns move in the negative direction
-        let multiplier: i16 = if self.is_white { -1 } else { 1 };
-        let one_row = (source as i16) + multiplier * (ROW as i16);
-        let two_rows = (source as i16) + multiplier * (ROW as i16) * 2;
-
-        let move_double_forward = if self.is_white { 6 } else { 1 };
-
-        if board
-            .state
-            .get((one_row) as usize)
-            .is_some_and(|x| *x == 0u8)
-        {
-            possible_positions.push(one_row);
-        }
-
-        if move_double_forward == position_helper::get_row(source)
-            && board
-                .state
-                .get((two_rows) as usize)
-                .is_some_and(|x| *x == 0u8)
-            && board
-                .state
-                .get((one_row) as usize)
-                .is_some_and(|x| *x == 0u8)
-        {
-            possible_positions.push(two_rows);
-        }
-
-        //Handle taking pieces
-        let diagonal_right = (source as i16) + multiplier * (ROW as i16) + (COL as i16);
-        let diagonal_left = (source as i16) + multiplier * (ROW as i16) - (COL as i16);
-
-        //check the position to avoid taking on the other side
-        let col = position_helper::get_col(source);
-
-        if col < 7
-            && (board
-                .state
-                .get(diagonal_right as usize)
-                .is_some_and(|x| *x != 0u8)
-                || board.en_passant == diagonal_right as u8)
-        {
-            possible_positions.push(diagonal_right);
-        }
-
-        if col > 0
-            && (board
-                .state
-                .get(diagonal_left as usize)
-                .is_some_and(|x| *x != 0u8)
-                || board.en_passant == diagonal_left as u8)
-        {
-            possible_positions.push(diagonal_left);
-        }
-
-        let mut final_positions = Vec::new();
-        for pos in possible_positions {
-            if position_helper::is_position_valid(pos as u8, board, self.is_white) {
-                final_positions.push(pos as u8);
-            }
-        }
-
-        final_positions
-    }
-
-    fn king_moves(self, position: u8, board: &Board) -> Vec<u8> {
-        let offsets = [-9, -8, -7, -1, 1, 7, 8, 9];
-        let mut possible_positions = Vec::<u8>::new();
-        let row = position_helper::get_row(position) as i16;
-        let col = position_helper::get_col(position) as i16;
-        for offset in offsets.iter() {
-            let new_position = position as i16 + offset;
-            if (position_helper::get_row(new_position as u8) as i16 - row).abs() > 1
-                || (position_helper::get_col(new_position as u8) as i16 - col).abs() > 1
-            {
-                continue;
-            }
-            if position_helper::is_position_valid(new_position as u8, board, self.is_white) {
-                possible_positions.push(new_position as u8);
-            }
-        }
-
-        // Handle castling
-        possible_positions.append(&mut self.castling_moves(position, board));
-
-        possible_positions
-    }
-
-    fn castling_moves(self, source: u8, board: &Board) -> Vec<u8> {
-        let mut possible_positions = Vec::<u8>::new();
-        let mut king_side = false;
-        let mut queen_side = false;
-
-        if self.is_white {
-            if board.castling & 8u8 == 8u8 {
-                king_side = true;
-            }
-            if board.castling & 4u8 == 4u8 {
-                queen_side = true;
-            }
-        } else {
-            if board.castling & 2u8 == 2u8 {
-                king_side = true;
-            }
-            if board.castling & 1u8 == 1u8 {
-                queen_side = true;
-            }
-        }
-
-        if king_side {
-            let mut blocked = false;
-            for i in 1..2 {
-                let position_to_check = source + i;
-                blocked = board.state[position_to_check as usize] != 0u8;
-                if blocked {
-                    break;
-                }
-            }
-            let piece_at_rook = board.state[(source + 3) as usize];
-            let rook = Piece::init_from_binary(piece_at_rook);
-            if !blocked && rook.class == PieceType::Rook {
-                possible_positions.push(source + 2);
-            }
-        }
-
-        if queen_side {
-            let mut blocked = false;
-            for i in 1..3 {
-                let position_to_check = source - i;
-                blocked = board.state[position_to_check as usize] != 0u8;
-                if blocked {
-                    break;
-                }
-            }
-            let piece_at_rook = board.state[(source - 4) as usize];
-            let rook = Piece::init_from_binary(piece_at_rook);
-            if !blocked && rook.class == PieceType::Rook {
-                possible_positions.push(source - 2);
-            }
-        }
-
-        possible_positions
-    }
-
-    fn rook_moves(self, source: u8, board: &Board) -> Vec<u8> {
-        let mut possible_positions = Vec::<u8>::new();
-        let row = position_helper::get_row(source);
-        let col = position_helper::get_col(source);
-
-        let mut blocked_right: bool = false;
-        let mut blocked_up: bool = false;
-        let mut blocked_down: bool = false;
-        let mut blocked_left: bool = false;
-        // move up, down, left, and right from the current position
-        // check that there is no piece in the way
-        for i in 1..8 {
-            if col + i < 8 && !blocked_right {
-                // check right boundary
-                let position_to_check = source + i;
-                let piece_retrieved = board.state.get(position_to_check as usize);
-
-                // If a piece is found, we are now blocked from moving forward
-                blocked_right = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(source + i);
-            }
-            if i <= col && !blocked_left {
-                // check left boundary
-                let position_to_check = source - i;
-                let piece_retrieved = board.state.get(position_to_check as usize);
-
-                // If a piece is found, we are now blocked from moving forward
-                blocked_left = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(source - i);
-            }
-            if row + i < 8 && !blocked_down {
-                // check lower boundary
-                let position_to_check = source + ROW * i;
-                let piece_retrieved = board.state.get(position_to_check as usize);
-
-                // If a piece is found, we are now blocked from moving forward
-                blocked_down = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(source + ROW * i);
-            }
-            if i <= row && !blocked_up {
-                // check upper boundary
-                let position_to_check = source - ROW * i;
-                let piece_retrieved = board.state.get(position_to_check as usize);
-
-                blocked_up = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(source - ROW * i);
-            }
-        }
-
-        // Handle castling
-        let mut final_positions = Vec::new();
-        for pos in possible_positions {
-            if position_helper::is_position_valid(pos, board, self.is_white) {
-                final_positions.push(pos);
-            }
-        }
-
-        final_positions
-    }
-
-    fn queen_moves(self, position: u8, board: &Board) -> Vec<u8> {
-        let mut queen_positions = self.clone().rook_moves(position, board);
-        let mut bishop_positions = self.bishop_moves(position, board);
-
-        queen_positions.append(&mut bishop_positions);
-        queen_positions.to_vec()
-    }
-
-    fn bishop_moves(self, position: u8, board: &Board) -> Vec<u8> {
-        let row = position_helper::get_row(position);
-        let col = position_helper::get_col(position);
-        let mut blocked_up_left = false;
-        let mut blocked_down_left = false;
-        let mut blocked_up_right = false;
-        let mut blocked_down_right = false;
-
-        (1..8)
-            .filter_map(|i| {
-                let mut moves = Vec::new();
-
-                if col + i < 8 {
-                    if row + i < 8 && !blocked_down_right {
-                        let position_to_check = position + i + ROW * i;
-                        let piece_retrieved = board.state.get(position_to_check as usize);
-
-                        blocked_down_right = piece_retrieved.is_some_and(|x| *x != 0u8);
-                        moves.push(position + i + ROW * i);
-                    }
-                    if i <= row && !blocked_up_right {
-                        let position_to_check = position + i - ROW * i;
-                        let piece_retrieved = board.state.get(position_to_check as usize);
-
-                        blocked_up_right = piece_retrieved.is_some_and(|x| *x != 0u8);
-                        moves.push(position + i - ROW * i);
-                    }
-                }
-
-                if i <= col {
-                    if row + i < 8 && !blocked_down_left {
-                        let position_to_check = position - i + ROW * i;
-                        let piece_retrieved = board.state.get(position_to_check as usize);
-
-                        blocked_down_left = piece_retrieved.is_some_and(|x| *x != 0u8);
-                        moves.push(position - i + ROW * i);
-                    }
-                    if i <= row && !blocked_up_left {
-                        let position_to_check = position - i - ROW * i;
-                        let piece_retrieved = board.state.get(position_to_check as usize);
-
-                        blocked_up_left = piece_retrieved.is_some_and(|x| *x != 0u8);
-                        moves.push(position - i - ROW * i);
-                    }
-                }
-
-                Some(moves)
-            })
-            .flatten()
-            .filter(|&pos| position_helper::is_position_valid(pos, board, self.is_white))
-            .collect()
-    }
-
-    fn knight_moves(self, position: u8, board: &Board) -> Vec<u8> {
-        let offsets = [-17, -15, -10, -6, 6, 10, 15, 17];
-
-        let mut possible_positions = Vec::<u8>::new();
-        let row = position_helper::get_row(position) as i16;
-        let col = position_helper::get_col(position) as i16;
-
-        for offset in offsets.iter() {
-            let new_position = position as i16 + offset;
-            if (position_helper::get_row(new_position as u8) as i16 - row).abs() > 2
-                || (position_helper::get_col(new_position as u8) as i16 - col).abs() > 2
-            {
-                continue;
-            }
-            if position_helper::is_position_valid(new_position as u8, board, self.is_white) {
-                possible_positions.push(new_position as u8);
-            }
-        }
-        let mut final_positions = Vec::new();
-        for pos in possible_positions {
-            if position_helper::is_position_valid(pos, board, self.is_white) {
-                final_positions.push(pos);
-            }
-        }
-
-        final_positions
-    }
-}
-
-impl BasicPiece for Piece {
-    fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8> {
-        let possible_positions: Vec<u8> = match self.class {
-            PieceType::Pawn => Piece::pawn_moves(self.clone(), position, board),
-            PieceType::King => Piece::king_moves(self.clone(), position, board),
-            PieceType::Bishop => Piece::bishop_moves(self.clone(), position, board),
-            PieceType::Queen => Piece::queen_moves(self.clone(), position, board),
-            PieceType::Rook => Piece::rook_moves(self.clone(), position, board),
-            PieceType::Knight => Piece::knight_moves(self.clone(), position, board),
-        };
-        possible_positions
-    }
-
-    fn init_from_binary(binary: u8) -> Self {
-        let is_white = (binary & WHITE_BIT) == WHITE_BIT;
-        // The alive bit might mess this up
-        let binary_piece = binary & CHECK_PIECE;
-
-        let piece_type = match binary_piece {
-            8u8..=16u8 => PieceType::Pawn,
-            0u8 => PieceType::King,
-            1u8 => PieceType::Queen,
-            2u8 | 3u8 => PieceType::Bishop,
-            4u8 | 5u8 => PieceType::Knight,
-            6u8 | 7u8 => PieceType::Rook,
-            _ => panic!("This piece does not exist!. The binary is {}", binary),
-        };
-
-        Self {
-            binary,
-            is_white,
-            class: piece_type,
-        }
-    }
-
-    fn text_repr(&self) -> String {
-        let mut return_string = String::from("");
-        let color_string: String = if self.is_white {
-            String::from("w")
-        } else {
-            String::from("b")
-        };
-
-        let piece_string = match self.class {
-            PieceType::Pawn => "P".to_string(),
-            PieceType::King => "K".to_string(),
-            PieceType::Queen => "Q".to_string(),
-            PieceType::Bishop => "B".to_string(),
-            PieceType::Knight => "N".to_string(),
-            PieceType::Rook => "R".to_string(),
-        };
-        return_string.push_str(&color_string);
-        return_string.push_str(&piece_string);
-        return_string
-    }
-
-    fn fen_repr(&self) -> String {
-        let mut piece_string = match self.class {
-            PieceType::Pawn => "P",
-            PieceType::King => "K",
-            PieceType::Queen => "Q",
-            PieceType::Bishop => "B",
-            PieceType::Knight => "N",
-            PieceType::Rook => "R",
-        }
-        .to_string();
-        if !self.is_white {
-            piece_string = piece_string.to_lowercase();
-        }
-        piece_string
-    }
-}
-
-pub trait BasicPiece {
-    fn init_from_binary(binary: u8) -> Self;
-    fn text_repr(&self) -> String;
-    fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8>;
-    fn fen_repr(&self) -> String;
-}
-
-#[derive(Debug, Clone)]
-/// Represents a chess board.
-pub struct Board {
-    /// The state of the chess board represented as an array of 64 bytes.
-    /// Each index corresponds to a square on the board, and the value represents the piece on that square.
-    pub state: [u8; 64],
-
-    /// The bitboard representation of the chess board.
-    /// The first 6 elements (0-5) represent the white pieces, and the next 6 elements (6-11) represent the black pieces.
-    pub bitboard: [u64; 12],
-
-    /// The hash value of the current board position.
-    pub hash: u64,
-
-    /// The en passant square on the board.
-    /// If no en passant square is available, it is set to 0.
-    pub en_passant: u8,
-
-    /// The castling rights of the players.
-    /// The value is a bitmask where:
-    /// - Bit 3 (8) represents white kingside castling (K)
-    /// - Bit 2 (4) represents white queenside castling (Q)
-    /// - Bit 1 (2) represents black kingside castling (k)
-    /// - Bit 0 (1) represents black queenside castling (q)
-    pub castling: u8,
-}
-
-impl Board {
-    pub fn show(&self) {
-        println!("  |----|----|----|----|----|----|----|----|");
-        let mut row_count = 8;
-        for row in 0..8 {
-            print!("{} ", row_count);
-            row_count -= 1;
-            print!("|");
-
-            for col in 0..8 {
-                print!(" ");
-
-                // Piece print
-                if self.state[row * 8 + col] == 0u8 {
-                    print!("  ");
-                } else {
-                    let piece = Piece::init_from_binary(self.state[row * 8 + col]);
-                    print!("{}", piece.text_repr());
-                }
-
-                print!(" |");
-            }
-            println!();
-            println!("  |----|----|----|----|----|----|----|----|");
-        }
-        println!("    a    b    c    d    e    f    g    h  ");
-    }
-
-    pub fn get_castling_fen(&self) -> String {
-        let mut castling_fen = String::from("");
-        if self.castling & 8u8 == 8u8 {
-            castling_fen.push('K');
-        }
-        if self.castling & 4u8 == 4u8 {
-            castling_fen.push('Q');
-        }
-        if self.castling & 2u8 == 2u8 {
-            castling_fen.push('k');
-        }
-        if self.castling & 1u8 == 1u8 {
-            castling_fen.push('q');
-        }
-        if castling_fen.is_empty() {
-            castling_fen.push('-');
-        }
-        castling_fen
-    }
-
-    pub fn init() -> Self {
-        let state = [0u8; 64];
-        let bitboard = [0u64; 12];
-        let hash = 0u64;
-        let en_passant = 0u8;
-        let castling = 8u8 + 4u8 + 2u8 + 1u8;
-        Self {
-            state,
-            bitboard,
-            hash,
-            en_passant,
-            castling,
-        }
-    }
-
-    pub fn set_start_position(&mut self) {
-        // Reset the board
-        self.state = [0u8; 64];
-
-        let initial_fen = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
-
-        // Split the fen
-        let mut fen_split = initial_fen.split(' ');
-        let board_state = fen_split.next().unwrap();
-
-        // Set the board state
-        let mut board_state_index = 0;
-        for c in board_state.chars() {
-            if c == '/' {
-                continue;
-            }
-            if c.is_numeric() {
-                let num = c.to_digit(10).unwrap();
-                board_state_index += num;
-            } else {
-                // Set the piece
-                let mut piece = PIECE_BIT;
-                if c.is_uppercase() {
-                    piece += WHITE_BIT;
-                }
-                match c {
-                    'p' | 'P' => piece += PAWN_BIT,
-                    'r' | 'R' => piece += ROOK,
-                    'n' | 'N' => piece += KNIGHT,
-                    'b' | 'B' => piece += BISHOP,
-                    'q' | 'Q' => piece += QUEEN,
-                    'k' | 'K' => piece += KING,
-                    _ => panic!("This piece does not exist!"),
-                }
-                let index: usize = board_state_index.try_into().unwrap();
-                self.state[index] = piece;
-                board_state_index += 1;
-            }
-        }
-    }
-}
-
 pub mod position_helper {
     use crate::{Board, WHITE_BIT};
 
@@ -1101,10 +611,277 @@ pub mod position_helper {
     }
 }
 
-pub mod cherris_engine {
+pub mod engine {
+    use crate::position_helper;
+    use crate::psqt;
+    use crate::Board;
+    use crate::ChessGame;
     use crate::Game;
+    use crate::Move;
+    use crate::{BasicPiece, Piece, PieceType};
 
     pub struct Engine {
-        game: Game,
+        pub game: Game,
     }
+
+    impl Engine {
+        pub fn init() -> Engine {
+            Engine { game: Game::init() }
+        }
+
+        pub fn init_from_game(game: Game) -> Engine {
+            Engine { game }
+        }
+
+        pub fn evaluate(board: &Board) -> i32 {
+            let mut score = 0;
+
+            // TODO: check for middle game and end game
+
+            // Material
+            for i in 0..64 {
+                let piece = board.state[i];
+                if piece == 0 {
+                    continue;
+                }
+                let piece: Piece = Piece::init_from_binary(piece);
+                let position_value = {
+                    if piece.is_white {
+                        match piece.class {
+                            PieceType::King => psqt::KING[i as usize],
+                            PieceType::Queen => psqt::QUEEN[i as usize],
+                            PieceType::Rook => psqt::ROOK[i as usize],
+                            PieceType::Bishop => psqt::BISHOP[i as usize],
+                            PieceType::Knight => psqt::KNIGHT[i as usize],
+                            PieceType::Pawn => psqt::PAWN[i as usize],
+                        }
+                    } else {
+                        match piece.class {
+                            PieceType::King => psqt::KING[psqt::FLIP[i as usize]],
+                            PieceType::Queen => psqt::QUEEN[psqt::FLIP[i as usize]],
+                            PieceType::Rook => psqt::ROOK[psqt::FLIP[i as usize]],
+                            PieceType::Bishop => psqt::BISHOP[psqt::FLIP[i as usize]],
+                            PieceType::Knight => psqt::KNIGHT[psqt::FLIP[i as usize]],
+                            PieceType::Pawn => psqt::PAWN[psqt::FLIP[i as usize]],
+                        }
+                    }
+                };
+                let material_value = match piece.class {
+                    PieceType::King => 900 + psqt::KING[i as usize],
+                    PieceType::Queen => 90 + psqt::QUEEN[i as usize],
+                    PieceType::Rook => 50 + psqt::ROOK[i as usize],
+                    PieceType::Bishop => 30 + psqt::BISHOP[i as usize],
+                    PieceType::Knight => 30 + psqt::KNIGHT[i as usize],
+                    PieceType::Pawn => 10 + psqt::PAWN[i as usize],
+                };
+                if piece.is_white {
+                    score += material_value + position_value;
+                } else {
+                    score -= material_value + position_value;
+                }
+            }
+            score
+        }
+
+        pub fn search(&mut self, depth: u8) -> Move {
+            let mut best_move = Move {
+                source: 0,
+                target: 0,
+                promotion: 0,
+            };
+            let mut best_score = -100000;
+            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            for i in 0..moves.len() {
+                // make the move
+                self.game.play_move_ob(&moves[i]);
+                let score = -self.alpha_beta2(depth - 1, best_score, -best_score);
+
+                // undo the move
+                self.game.undo_move();
+
+                // update the best move
+                if score > best_score {
+                    best_score = score;
+                    best_move = moves[i];
+                }
+            }
+            let source = position_helper::index_to_letter(best_move.source);
+            let target = position_helper::index_to_letter(best_move.target);
+            println!("Best move: {}{} - score: {}", source, target, best_score);
+            best_move
+        }
+
+
+
+        pub fn quiescence(&mut self, mut alpha: i32, beta: i32, depth: u8) -> i32 {
+            if depth == 0 {
+                return Engine::evaluate(&self.game.board);
+            }
+            let stand_pat = Engine::evaluate(&self.game.board);
+            if stand_pat >= beta {
+                return beta;
+            }
+            if alpha < stand_pat {
+                alpha = stand_pat;
+            }
+            let capture_moves = self.game.get_capture_moves();
+            for i in 0..capture_moves.len() {
+                self.game.play_move_ob(&capture_moves[i]);
+                let score = -self.quiescence(-beta, -alpha, depth - 1);
+                self.game.undo_move();
+                if score >= beta {
+                    return beta;
+                }
+                if score > alpha {
+                    alpha = score;
+                }
+            }
+            alpha
+        }
+
+        pub fn alpha_beta2(&mut self,  depth: u8, mut alpha: i32, beta: i32) -> i32 {
+            if depth == 0 {
+                return self.quiescence(alpha, beta, 5);
+            }
+            let mut best_score = -100000;
+            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            for i in 0..moves.len() {
+                let success = self.game.play_move_ob(&moves[i]);
+                if !success {
+                    continue;
+                }
+                let score = -self.alpha_beta2(depth - 1, -beta, -alpha);
+                self.game.undo_move();
+                if score > best_score {
+                    best_score = score;
+                }
+                if score > alpha {
+                    alpha = score;
+                }
+                if alpha >= beta {
+                    break;
+                }
+            }
+            best_score
+        }
+
+        // pub fn alpha_beta(&self, board: &Board, depth: u8, alpha: i32, beta: i32) -> i32 {
+        //     if depth == 0 {
+        //         return Engine::evaluate(board);
+        //     }
+        //     let mut alpha = alpha;
+        //     let beta = beta;
+        //     let mut best_score = -100000;
+        //     let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+        //     for i in 0..moves.len() {
+        //         let mut game_copy = self.game.clone();
+        //         let success = game_copy.play_move_ob(&moves[i]);
+        //         if !success {
+        //             continue;
+        //         }
+        //         let score = -self.alpha_beta(&game_copy.board, depth - 1, -beta, -alpha);
+        //         if score > best_score {
+        //             best_score = score;
+        //         }
+        //         if score > alpha {
+        //             alpha = score;
+        //         }
+        //         if alpha >= beta {
+        //             break;
+        //         }
+        //     }
+        //     best_score
+        // }
+    }
+}
+
+#[rustfmt::skip]
+pub mod psqt {
+    pub const PAWN: [i32; 64] = [
+        0,  0,  0,  0,  0,  0,  0,  0,
+       50, 50, 50, 50, 50, 50, 50, 50,
+       10, 10, 20, 30, 30, 20, 10, 10,
+        5,  5, 10, 25, 25, 10,  5,  5,
+        0,  0,  0, 20, 20,  0,  0,  0,
+        5, -5,-10,  0,  0,-10, -5,  5,
+        5, 10, 10,-20,-20, 10, 10,  5,
+        0,  0,  0,  0,  0,  0,  0,  0
+    ];
+
+    pub const KNIGHT: [i32; 64] = [
+       -50,-40,-30,-30,-30,-30,-40,-50,
+       -40,-20,  0,  5,  5,  0,-20,-40,
+       -30,  5, 10, 15, 15, 10,  5,-30,
+       -30,  0, 15, 20, 20, 15,  0,-30,
+       -30,  5, 15, 20, 20, 15,  5,-30,
+       -30,  0, 10, 15, 15, 10,  0,-30,
+       -40,-20,  0,  0,  0,  0,-20,-40,
+       -50,-40,-30,-30,-30,-30,-40,-50
+    ];
+
+    pub const BISHOP: [i32; 64] = [
+        -20,-10,-10,-10,-10,-10,-10,-20,
+        -10,  0,  0,  0,  0,  0,  0,-10,
+        -10,  0,  5, 10, 10,  5,  0,-10,
+        -10,  5,  5, 10, 10,  5,  5,-10,
+        -10,  0, 10, 10, 10, 10,  0,-10,
+        -10, 10, 10, 10, 10, 10, 10,-10,
+        -10,  5,  0,  0,  0,  0,  5,-10,
+        -20,-10,-10,-10,-10,-10,-10,-20,
+    ];
+
+    pub const ROOK: [i32; 64] = [
+        0,  0,  0,  0,  0,  0,  0,  0,
+        5, 10, 10, 10, 10, 10, 10,  5,
+       -5,  0,  0,  0,  0,  0,  0, -5,
+       -5,  0,  0,  0,  0,  0,  0, -5,
+       -5,  0,  0,  0,  0,  0,  0, -5,
+       -5,  0,  0,  0,  0,  0,  0, -5,
+       -5,  0,  0,  0,  0,  0,  0, -5,
+        0,  0,  0,  5,  5,  0,  0,  0
+    ];
+
+    pub const QUEEN: [i32; 64] = [
+        -20,-10,-10, -5, -5,-10,-10,-20,
+        -10,  0,  0,  0,  0,  0,  0,-10,
+        -10,  0,  5,  5,  5,  5,  0,-10,
+         -5,  0,  5,  5,  5,  5,  0, -5,
+          0,  0,  5,  5,  5,  5,  0, -5,
+        -10,  5,  5,  5,  5,  5,  0,-10,
+        -10,  0,  5,  0,  0,  0,  0,-10,
+        -20,-10,-10, -5, -5,-10,-10,-20
+    ];
+
+    pub const KING: [i32; 64] = [
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -20,-30,-30,-40,-40,-30,-30,-20,
+        -10,-20,-20,-20,-20,-20,-20,-10,
+         20, 20,  0,  0,  0,  0, 20, 20,
+         20, 30, 10,  0,  0, 10, 30, 20
+    ];
+
+    pub const KING_LATE: [i32; 64] = [
+        -50,-40,-30,-20,-20,-30,-40,-50,
+        -30,-20,-10,  0,  0,-10,-20,-30,
+        -30,-10, 20, 30, 30, 20,-10,-30,
+        -30,-10, 30, 40, 40, 30,-10,-30,
+        -30,-10, 30, 40, 40, 30,-10,-30,
+        -30,-10, 20, 30, 30, 20,-10,-30,
+        -30,-30,  0,  0,  0,  0,-30,-30,
+        -50,-30,-30,-30,-30,-30,-30,-50
+    ];
+
+    pub const FLIP: [usize; 64] = [
+        56, 57, 58, 59, 60, 61, 62, 63,
+        48, 49, 50, 51, 52, 53, 54, 55,
+        40, 41, 42, 43, 44, 45, 46, 47,
+        32, 33, 34, 35, 36, 37, 38, 39,
+        24, 25, 26, 27, 28, 29, 30, 31,
+        16, 17, 18, 19, 20, 21, 22, 23,
+         8,  9, 10, 11, 12, 13, 14, 15,
+         0,  1,  2,  3,  4,  5,  6,  7,
+    ];
 }
