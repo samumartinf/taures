@@ -726,6 +726,10 @@ pub mod engine {
             }
             let source = position_helper::index_to_letter(best_move.source);
             let target = position_helper::index_to_letter(best_move.target);
+            if best_move.source == 0 && best_move.target == 0 {
+                println!("No legal moves available");
+                return best_move;
+            }
             println!("Best move: {}{} - score: {}", source, target, best_score);
             best_move
         }

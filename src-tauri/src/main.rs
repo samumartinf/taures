@@ -1,7 +1,7 @@
 use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame, Game};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
-use rand::Rng;
+use rand::{seq::index, Rng};
 use std::sync::{Arc, Mutex};
 
 lazy_static! {
@@ -97,6 +97,19 @@ fn play_best_move(depth: i32) -> String {
     game.get_fen_simple()
 }
 
+#[tauri::command]
+fn get_legal_moves(source: &str) -> Vec<String> {
+    let game = GAME.lock().unwrap();
+    let moves = game.get_legal_moves(game.white_turn);
+    let mut result = Vec::new();
+    for m in moves {
+        if position_helper::index_to_letter(m.source) == source {
+            result.push(position_helper::index_to_letter(m.target));
+        }
+    }
+    return result;
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
 
@@ -113,6 +126,7 @@ fn main() -> Result<()> {
             get_position_string,
             make_random_move,
             play_best_move,
+            get_legal_moves,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

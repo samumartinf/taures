@@ -65,9 +65,11 @@ async function onDragStart2(source: string, piece, position, orientation) {
     "get_possible_moves",
     { source: source },
   );
+
+  var legal_moves = await invoke("get_legal_moves", { source: source });
   var allowedMovesEl = document.getElementById("allowedMoves");
   if (allowedMovesEl) {
-    allowedMovesEl.innerText = "Allowed movez: " + possible_moves_from_engine;
+    allowedMovesEl.innerText = "Allowed movez: " + possible_moves_from_engine + ", Legal moves: " + legal_moves;
   }
 }
 
