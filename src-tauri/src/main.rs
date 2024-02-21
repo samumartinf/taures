@@ -68,7 +68,7 @@ fn get_position_string() {
 #[tauri::command]
 fn make_random_move() -> String {
     let mut game = GAME.lock().unwrap();
-    let moves = game.get_all_moves_for_color(game.white_turn);
+    let moves = game.get_legal_moves(game.white_turn);
 
     // select a random move
     let mut rng = rand::thread_rng();

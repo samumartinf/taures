@@ -49,6 +49,8 @@ pub trait ChessGame {
     fn get_all_moves(&self) -> Vec<Move>;
     fn get_all_moves_for_color(&self, white: bool) -> Vec<Move>;
     fn get_capture_moves(&self) -> Vec<Move>;
+    fn get_legal_moves(&self, white: bool) -> Vec<Move>;
+    fn make_legal_move(&mut self, mv: Move) -> bool;
 }
 
 pub trait ChessDebugInfo {
@@ -87,7 +89,7 @@ impl Game {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Move {
     pub source: u8,    // source position byte
     pub target: u8,    // target position byte
@@ -95,6 +97,58 @@ pub struct Move {
 }
 
 impl ChessGame for Game {
+
+    fn get_legal_moves(&self, white: bool) -> Vec<Move> {
+
+        // get my king position
+        let mut king_position = 0;
+        for i in 0..63 {
+            let piece = self.board.state[i];
+            if piece == 0 {
+                continue;
+            }
+            let piece = Piece::init_from_binary(piece);
+            if piece.class == PieceType::King && piece.is_white == white {
+                king_position = i;
+                break;
+            }
+        }
+        
+        let mut game_copy = self.clone();
+        // define the filter function
+        let mut filter_f  = |mv: Move| {
+            game_copy.play_move_ob(&mv.clone());
+            let mut king_in_check = false;
+            let oponent_moves = self.get_all_moves_for_color(self.white_turn);
+            game_copy.undo_move();
+
+            // check if the king is in check
+            for oponent_move in oponent_moves {
+                if oponent_move.target == king_position as u8{
+                    king_in_check = true;
+                    break;
+                }
+            }
+            !king_in_check
+        };
+
+        let pseudo_legal_moves: Vec<Move> = self.get_all_moves_for_color(self.white_turn)
+            .iter()
+            .filter(|&&mv| filter_f(mv))
+            .cloned()
+            .collect();
+        pseudo_legal_moves
+    }
+
+    fn make_legal_move(&mut self, mv: Move) -> bool {
+        let legal_moves = self.get_legal_moves(self.white_turn);
+        if legal_moves.contains(&mv) {
+            self.play_move_ob(&mv);
+            return true;
+        }
+        false
+    }
+
     fn get_all_moves(&self) -> Vec<Move> {
         let mut moves = vec![];
 
@@ -117,26 +171,8 @@ impl ChessGame for Game {
     }
 
     fn get_capture_moves(&self) -> Vec<Move> {
-        let mut moves = vec![];
-
-        for square in 0..64 {
-            let piece = self.board.state[square];
-            if piece == 0 {
-                continue;
-            }
-            let piece = Piece::init_from_binary(piece);
-            let possible_moves = piece.possible_moves(square as u8, &self.board.clone());
-            for move_position in possible_moves {
-                let target_piece = self.board.state[move_position as usize];
-                if target_piece != 0 {
-                    moves.push(Move {
-                        source: square as u8,
-                        target: move_position,
-                        promotion: 0u8,
-                    })
-                }
-            }
-        }
+        let mut moves = self.get_legal_moves(self.white_turn);
+        moves.retain(|x| self.board.state[x.target as usize] != 0);
         moves
     }
 
@@ -648,7 +684,7 @@ pub mod engine {
                 let position_value = {
                     if piece.is_white {
                         match piece.class {
-                            PieceType::King => psqt::KING[i as usize],
+                            PieceType::King => 10000 + psqt::KING[i as usize],
                             PieceType::Queen => psqt::QUEEN[i as usize],
                             PieceType::Rook => psqt::ROOK[i as usize],
                             PieceType::Bishop => psqt::BISHOP[i as usize],
@@ -657,7 +693,7 @@ pub mod engine {
                         }
                     } else {
                         match piece.class {
-                            PieceType::King => psqt::KING[psqt::FLIP[i as usize]],
+                            PieceType::King => 10000 + psqt::KING[psqt::FLIP[i as usize]],
                             PieceType::Queen => psqt::QUEEN[psqt::FLIP[i as usize]],
                             PieceType::Rook => psqt::ROOK[psqt::FLIP[i as usize]],
                             PieceType::Bishop => psqt::BISHOP[psqt::FLIP[i as usize]],
@@ -666,18 +702,10 @@ pub mod engine {
                         }
                     }
                 };
-                let material_value = match piece.class {
-                    PieceType::King => 900 + psqt::KING[i as usize],
-                    PieceType::Queen => 90 + psqt::QUEEN[i as usize],
-                    PieceType::Rook => 50 + psqt::ROOK[i as usize],
-                    PieceType::Bishop => 30 + psqt::BISHOP[i as usize],
-                    PieceType::Knight => 30 + psqt::KNIGHT[i as usize],
-                    PieceType::Pawn => 10 + psqt::PAWN[i as usize],
-                };
                 if piece.is_white {
-                    score += material_value + position_value;
+                    score += position_value;
                 } else {
-                    score -= material_value + position_value;
+                    score -= position_value;
                 }
             }
             score
@@ -690,7 +718,7 @@ pub mod engine {
                 promotion: 0,
             };
             let mut best_score = -100000;
-            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            let moves = self.game.get_legal_moves(self.game.white_turn);
             for i in 0..moves.len() {
                 // make the move
                 self.game.play_move_ob(&moves[i]);
@@ -798,58 +826,58 @@ pub mod engine {
 #[rustfmt::skip]
 pub mod psqt {
     pub const PAWN: [i32; 64] = [
-        0,  0,  0,  0,  0,  0,  0,  0,
-       50, 50, 50, 50, 50, 50, 50, 50,
-       10, 10, 20, 30, 30, 20, 10, 10,
-        5,  5, 10, 25, 25, 10,  5,  5,
-        0,  0,  0, 20, 20,  0,  0,  0,
-        5, -5,-10,  0,  0,-10, -5,  5,
-        5, 10, 10,-20,-20, 10, 10,  5,
-        0,  0,  0,  0,  0,  0,  0,  0
+        100, 100, 100, 100, 100, 100, 100, 100,
+        160, 160, 160, 160, 170, 160, 160, 160,
+        140, 140, 140, 150, 160, 140, 140, 140,
+        120, 120, 120, 140, 150, 120, 120, 120,
+        105, 105, 115, 130, 140, 110, 105, 105,
+        105, 105, 110, 120, 130, 105, 105, 105,
+        105, 105, 105,  70,  70, 105, 105, 105,
+        100, 100, 100, 100, 100, 100, 100, 100
     ];
 
     pub const KNIGHT: [i32; 64] = [
-       -50,-40,-30,-30,-30,-30,-40,-50,
-       -40,-20,  0,  5,  5,  0,-20,-40,
-       -30,  5, 10, 15, 15, 10,  5,-30,
-       -30,  0, 15, 20, 20, 15,  0,-30,
-       -30,  5, 15, 20, 20, 15,  5,-30,
-       -30,  0, 10, 15, 15, 10,  0,-30,
-       -40,-20,  0,  0,  0,  0,-20,-40,
-       -50,-40,-30,-30,-30,-30,-40,-50
+        290, 300, 300, 300, 300, 300, 300, 290,
+        300, 305, 305, 305, 305, 305, 305, 300,
+        300, 305, 325, 325, 325, 325, 305, 300,
+        300, 305, 325, 325, 325, 325, 305, 300,
+        300, 305, 325, 325, 325, 325, 305, 300,
+        300, 305, 320, 325, 325, 325, 305, 300,
+        300, 305, 305, 305, 305, 305, 305, 300,
+        290, 310, 300, 300, 300, 300, 310, 290
     ];
 
     pub const BISHOP: [i32; 64] = [
-        -20,-10,-10,-10,-10,-10,-10,-20,
-        -10,  0,  0,  0,  0,  0,  0,-10,
-        -10,  0,  5, 10, 10,  5,  0,-10,
-        -10,  5,  5, 10, 10,  5,  5,-10,
-        -10,  0, 10, 10, 10, 10,  0,-10,
-        -10, 10, 10, 10, 10, 10, 10,-10,
-        -10,  5,  0,  0,  0,  0,  5,-10,
-        -20,-10,-10,-10,-10,-10,-10,-20,
+        300, 320, 320, 320, 320, 320, 320, 300,
+        305, 320, 320, 320, 320, 320, 320, 305,
+        310, 320, 320, 325, 325, 320, 320, 310,
+        310, 330, 330, 350, 350, 330, 330, 310,
+        325, 325, 330, 345, 345, 330, 325, 325,
+        325, 325, 325, 330, 330, 325, 325, 325,
+        310, 325, 325, 330, 330, 325, 325, 310,
+        300, 310, 310, 310, 310, 310, 310, 300
     ];
 
     pub const ROOK: [i32; 64] = [
-        0,  0,  0,  0,  0,  0,  0,  0,
-        5, 10, 10, 10, 10, 10, 10,  5,
-       -5,  0,  0,  0,  0,  0,  0, -5,
-       -5,  0,  0,  0,  0,  0,  0, -5,
-       -5,  0,  0,  0,  0,  0,  0, -5,
-       -5,  0,  0,  0,  0,  0,  0, -5,
-       -5,  0,  0,  0,  0,  0,  0, -5,
-        0,  0,  0,  5,  5,  0,  0,  0
+        500, 500, 500, 500, 500, 500, 500, 500,
+        515, 515, 515, 520, 520, 515, 515, 515,
+        500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 510, 510, 510, 500, 500
     ];
 
     pub const QUEEN: [i32; 64] = [
-        -20,-10,-10, -5, -5,-10,-10,-20,
-        -10,  0,  0,  0,  0,  0,  0,-10,
-        -10,  0,  5,  5,  5,  5,  0,-10,
-         -5,  0,  5,  5,  5,  5,  0, -5,
-          0,  0,  5,  5,  5,  5,  0, -5,
-        -10,  5,  5,  5,  5,  5,  0,-10,
-        -10,  0,  5,  0,  0,  0,  0,-10,
-        -20,-10,-10, -5, -5,-10,-10,-20
+        870, 880, 890, 890, 890, 890, 880, 870,
+        880, 890, 895, 895, 895, 895, 890, 880,
+        890, 895, 910, 910, 910, 910, 895, 890,
+        890, 895, 910, 920, 920, 910, 895, 890,
+        890, 895, 910, 920, 920, 910, 895, 890,
+        890, 895, 895, 895, 895, 895, 895, 890,
+        880, 890, 895, 895, 895, 895, 890, 880,
+        870, 880, 890, 890, 890, 890, 880, 870 
     ];
 
     pub const KING: [i32; 64] = [
@@ -875,13 +903,13 @@ pub mod psqt {
     ];
 
     pub const FLIP: [usize; 64] = [
-        56, 57, 58, 59, 60, 61, 62, 63,
-        48, 49, 50, 51, 52, 53, 54, 55,
-        40, 41, 42, 43, 44, 45, 46, 47,
-        32, 33, 34, 35, 36, 37, 38, 39,
-        24, 25, 26, 27, 28, 29, 30, 31,
-        16, 17, 18, 19, 20, 21, 22, 23,
-         8,  9, 10, 11, 12, 13, 14, 15,
-         0,  1,  2,  3,  4,  5,  6,  7,
+        63, 62, 61, 60, 59, 58, 57, 56,
+        55, 54, 53, 52, 51, 50, 49, 48,
+        47, 46, 45, 44, 43, 42, 41, 40,
+        39, 38, 37, 36, 35, 34, 33, 32,
+        31, 30, 29, 28, 27, 26, 25, 24,
+        23, 22, 21, 20, 19, 18, 17, 16,
+        15, 14, 13, 12, 11, 10,  9,  8,
+        7,  6,  5,  4,  3,  2,  1,  0
     ];
 }
