@@ -707,7 +707,6 @@ pub mod engine {
             }
 
             let moves = self.game.get_legal_moves(self.game.white_turn);
-            let first_move = moves[0].clone();
             for mv in moves {
                 // make the move
                 let success = self.game.play_move_ob(&mv);
