@@ -70,7 +70,7 @@ fn make_random_move() -> String {
     let mut game = GAME.lock().unwrap();
     let moves = game.get_legal_moves(game.white_turn);
 
-    if moves.len() == 0 {
+    if moves.is_empty() {
         println!("No legal moves available");
         return "None".to_string(); 
     }

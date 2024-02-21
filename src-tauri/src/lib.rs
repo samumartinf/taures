@@ -324,7 +324,7 @@ impl ChessGame for Game {
 
         // Append the en passant
         if self.board.en_passant == 0 {
-            fen_string.push_str("-");
+            fen_string.push('-');
         } else {
             let en_passant = position_helper::index_to_letter(self.board.en_passant);
             fen_string.push_str(&en_passant);
@@ -375,7 +375,7 @@ impl ChessGame for Game {
 
     fn play_move(&mut self, source_idx: u8, target_idx: u8) -> bool {
         if self.game_done {
-            let winning_side: String = if self.white_turn {
+            let _winning_side: String = if self.white_turn {
                 "Black".to_string()
             } else {
                 "White".to_string()
@@ -665,21 +665,21 @@ pub mod engine {
                 let position_value = {
                     if piece.is_white {
                         match piece.class {
-                            PieceType::King => 10000 + psqt::KING[i as usize],
-                            PieceType::Queen => psqt::QUEEN[i as usize],
-                            PieceType::Rook => psqt::ROOK[i as usize],
-                            PieceType::Bishop => psqt::BISHOP[i as usize],
-                            PieceType::Knight => psqt::KNIGHT[i as usize],
-                            PieceType::Pawn => psqt::PAWN[i as usize],
+                            PieceType::King => 10000 + psqt::KING[i],
+                            PieceType::Queen => psqt::QUEEN[i],
+                            PieceType::Rook => psqt::ROOK[i],
+                            PieceType::Bishop => psqt::BISHOP[i],
+                            PieceType::Knight => psqt::KNIGHT[i],
+                            PieceType::Pawn => psqt::PAWN[i],
                         }
                     } else {
                         match piece.class {
-                            PieceType::King => 10000 + psqt::KING[psqt::FLIP[i as usize]],
-                            PieceType::Queen => psqt::QUEEN[psqt::FLIP[i as usize]],
-                            PieceType::Rook => psqt::ROOK[psqt::FLIP[i as usize]],
-                            PieceType::Bishop => psqt::BISHOP[psqt::FLIP[i as usize]],
-                            PieceType::Knight => psqt::KNIGHT[psqt::FLIP[i as usize]],
-                            PieceType::Pawn => psqt::PAWN[psqt::FLIP[i as usize]],
+                            PieceType::King => 10000 + psqt::KING[psqt::FLIP[i]],
+                            PieceType::Queen => psqt::QUEEN[psqt::FLIP[i]],
+                            PieceType::Rook => psqt::ROOK[psqt::FLIP[i]],
+                            PieceType::Bishop => psqt::BISHOP[psqt::FLIP[i]],
+                            PieceType::Knight => psqt::KNIGHT[psqt::FLIP[i]],
+                            PieceType::Pawn => psqt::PAWN[psqt::FLIP[i]],
                         }
                     }
                 };
@@ -692,7 +692,7 @@ pub mod engine {
             score
         }
 
-        pub fn get_best_move(&mut self, mut depth: u8) -> Move {
+        pub fn get_best_move(&mut self, depth: u8) -> Move {
             let mut best_move = Move {
                 source: 0,
                 target: 0,
