@@ -84,7 +84,7 @@ fn play_best_move(depth: i32) -> String {
     println!("Playing best move with depth: {}", depth);
     let mut game = GAME.lock().unwrap();
     let mut engine = Engine::init_from_game(game.clone());
-    let best_move = engine.search(depth as u8);
+    let best_move = engine.get_best_move(depth as u8);
     let source_square = position_helper::index_to_letter(best_move.source);
     let target_square = position_helper::index_to_letter(best_move.target);
     println!("The best move was {} to {}", source_square, target_square);

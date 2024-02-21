@@ -22,7 +22,7 @@ fn test_engine() {
     let mut engine = Engine::init();
     let fen = "rnbqkbnr/pp3ppp/2p1P3/8/8/8/PPPP1PPP/RNBQKBNR w KQkq - 4 1".to_string();
     engine.game.set_from_fen(fen.clone());
-    let best_move = engine.search(1);
+    let best_move = engine.get_best_move(1);
     let allowed_move = engine.game.play_move_ob(&best_move);
     assert!(allowed_move);
 

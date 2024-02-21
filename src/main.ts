@@ -78,7 +78,7 @@ async function makeRandomMove() {
 
 async function makeBestMove() {
   console.log("Making best move");
-  var newFen: string = await invoke("play_best_move", { depth: 7 });
+  var newFen: string = await invoke("play_best_move", { depth: 2 });
   board.position(newFen);
 }
 
