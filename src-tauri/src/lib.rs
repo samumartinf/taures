@@ -46,11 +46,10 @@ pub trait ChessGame {
     fn restart(&mut self);
     fn undo_move(&mut self);
     fn get_pseudolegal_moves(&self, position: String) -> Vec<String>;
-    fn get_all_moves(&self) -> Vec<Move>;
     fn get_all_moves_for_color(&self, white: bool) -> Vec<Move>;
     fn get_capture_moves(&self) -> Vec<Move>;
     fn get_legal_moves(&self, white: bool) -> Vec<Move>;
-    fn make_legal_move(&mut self, mv: &Move) -> bool;
+    fn play_legal_move(&mut self, mv: &Move) -> bool;
 }
 
 pub trait ChessDebugInfo {
@@ -97,9 +96,7 @@ pub struct Move {
 }
 
 impl ChessGame for Game {
-
     fn get_legal_moves(&self, white: bool) -> Vec<Move> {
-
         // get my king position
         let mut king_position = 0;
         for i in 0..63 {
@@ -113,62 +110,46 @@ impl ChessGame for Game {
                 break;
             }
         }
-        
+
         let mut game_copy = self.clone();
         // define the filter function
         let mut final_moves: Vec<Move> = vec![];
         for mv in self.get_all_moves_for_color(white) {
-            game_copy.play_move_ob(&mv.clone());
+            let success = game_copy.play_move_ob(&mv.clone());
+
+            // if the move is illegal, skip it
+            if !success {
+                continue;
+            }
             let oponent_moves = self.get_all_moves_for_color(!self.white_turn);
             let mut king_in_check = false;
 
             // check if the king is in check
             for oponent_move in oponent_moves {
-                if oponent_move.target == king_position as u8{
+                if oponent_move.target == king_position as u8 {
                     game_copy.undo_move();
                     king_in_check = true;
                     break;
                 }
             }
+
+            // if the king is not in check, add the move to the final moves
             if !king_in_check {
                 final_moves.push(mv);
             }
             game_copy.undo_move();
-
-        };
+        }
 
         final_moves
-
     }
 
-    fn make_legal_move(&mut self, mv: &Move) -> bool {
+    fn play_legal_move(&mut self, mv: &Move) -> bool {
         let legal_moves = self.get_legal_moves(self.white_turn);
         if legal_moves.contains(mv) {
             self.play_move_ob(mv);
             return true;
         }
         false
-    }
-
-    fn get_all_moves(&self) -> Vec<Move> {
-        let mut moves = vec![];
-
-        for square in 0..64 {
-            let piece = self.board.state[square];
-            if piece == 0 {
-                continue;
-            }
-            let piece = Piece::init_from_binary(piece);
-            let possible_moves = piece.possible_moves(square as u8, &self.board.clone());
-            for move_position in possible_moves {
-                moves.push(Move {
-                    source: square as u8,
-                    target: move_position,
-                    promotion: 0u8,
-                })
-            }
-        }
-        moves
     }
 
     fn get_capture_moves(&self) -> Vec<Move> {
@@ -717,20 +698,23 @@ pub mod engine {
                 target: 0,
                 promotion: 0,
             };
+
+            let mut full_depth = depth * 2; // black and white move per depth
             let mut best_score = -100000;
-            if depth%2 == 0 && self.game.white_turn {
-                depth += 1;
+
+            if self.game.white_turn {
+                full_depth -= 1;
             }
 
-            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            let moves = self.game.get_legal_moves(self.game.white_turn);
             let first_move = moves[0].clone();
-            for i in 0..moves.len() {
+            for mv in moves {
                 // make the move
-                let success = self.game.play_move_ob(&moves[i]);
+                let success = self.game.play_move_ob(&mv);
                 if !success {
                     continue;
-                } 
-                let score = -self.alpha_beta(depth, best_score, -best_score);
+                }
+                let score = -self.alpha_beta(full_depth, best_score, -best_score);
 
                 // undo the move
                 self.game.undo_move();
@@ -738,7 +722,7 @@ pub mod engine {
                 // update the best move
                 if score > best_score {
                     best_score = score;
-                    best_move = moves[i];
+                    best_move = mv;
                 }
             }
             let source = position_helper::index_to_letter(best_move.source);
@@ -747,40 +731,14 @@ pub mod engine {
             best_move
         }
 
-
-
-        pub fn alpha_beta(&mut self,  depth: u8, mut alpha: i32, beta: i32) -> i32 {
+        pub fn alpha_beta(&mut self, depth: u8, mut alpha: i32, beta: i32) -> i32 {
             if depth == 0 {
                 return Engine::evaluate(&self.game.board);
             }
             let mut best_score = -100000;
-            let moves = {
-                let this = &self.game;
-                let white = self.game.white_turn;
-                let mut moves = vec![];
-
-                for square in 0..64 {
-                    let piece = this.board.state[square];
-                    if piece == 0 {
-                        continue;
-                    }
-                    let piece = Piece::init_from_binary(piece);
-                    if piece.is_white != white {
-                        continue;
-                    }
-                    let possible_moves = piece.possible_moves(square as u8, &this.board.clone());
-                    for move_position in possible_moves {
-                        moves.push(Move {
-                            source: square as u8,
-                            target: move_position,
-                            promotion: 0u8,
-                        })
-                    }
-                }
-                moves
-            };
-            for i in 0..moves.len() {
-                let success = self.game.play_move_ob(&moves[i]);
+            let moves = self.game.get_legal_moves(self.game.white_turn);
+            for mv in moves {
+                let success = self.game.play_move_ob(&mv);
                 if !success {
                     continue;
                 }
@@ -798,7 +756,6 @@ pub mod engine {
             }
             best_score
         }
-
     }
 }
 

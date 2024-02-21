@@ -73,11 +73,13 @@ async function onDragStart2(source: string, piece, position, orientation) {
 
 async function makeRandomMove() {
   var newFen: string = await invoke("make_random_move");
+  if (newFen == "None") {
+    return;
+  }
   board.position(newFen);
 }
 
 async function makeBestMove() {
-  console.log("Making best move");
   var newFen: string = await invoke("play_best_move", { depth: 2 });
   board.position(newFen);
 }

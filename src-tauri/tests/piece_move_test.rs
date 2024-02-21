@@ -401,6 +401,21 @@ fn test_en_passant_flag() {
     assert_eq!(game.en_passant, "e3");
 }
 
+
+//TODO: Add tests for the following:
+// - Castling
+// - Promotion
+// - Check
+// - Legal moves
+
+#[test]
+fn test_why_a8_to_a8_is_possible() {
+    let mut game = Game::init();
+    game.set_from_fen("r1b1kbnr/pppp1ppp/2n1pq2/3P4/8/2N5/PPP1PPPP/R1BQKBNR w KQkq - 0 1".to_string());
+    let allowed_move = game.play_move_from_string("a8".to_string(), "a8".to_string());
+    assert!(allowed_move);
+}
+
 #[test]
 fn test_queen_moves_from_fen() {
     let mut game = Game::init();

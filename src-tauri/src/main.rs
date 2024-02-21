@@ -70,6 +70,11 @@ fn make_random_move() -> String {
     let mut game = GAME.lock().unwrap();
     let moves = game.get_legal_moves(game.white_turn);
 
+    if moves.len() == 0 {
+        println!("No legal moves available");
+        return "None".to_string(); 
+    }
+
     // select a random move
     let mut rng = rand::thread_rng();
     let random_index = rng.gen_range(0..moves.len());
