@@ -2,20 +2,13 @@ use std::vec;
 
 pub mod board;
 pub mod piece;
+pub mod constants;
 
+use crate::constants::{
+    BISHOP, CHECK_PIECE, COL, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, ROW, WHITE_BIT,
+};
 use board::Board;
 use piece::{BasicPiece, Piece, PieceType};
-const PIECE_BIT: u8 = 128u8;
-const WHITE_BIT: u8 = 64u8;
-const PAWN_BIT: u8 = 8u8;
-const CHECK_PIECE: u8 = 0b00001111;
-const KING: u8 = 0u8;
-const QUEEN: u8 = 1u8;
-const BISHOP: u8 = 2u8;
-const KNIGHT: u8 = 4u8;
-const ROOK: u8 = 6u8;
-const ROW: u8 = 8u8;
-const COL: u8 = 1u8;
 
 #[derive(Debug, Clone)]
 /// Represents a game of chess.
@@ -391,7 +384,6 @@ impl ChessGame for Game {
         let mut pawn_taken = false;
 
         let king_moved = false;
-        let mut rook_moved = false;
 
         if piece_bits == &0u8 {
             return false;
@@ -456,7 +448,7 @@ impl ChessGame for Game {
         // Update castling options if rook is moved
         if piece.class == PieceType::Rook {
             let is_kingside = position_helper::get_col(source_idx) == 7;
-            rook_moved = true;
+            let rook_moved = true;
             self.set_castling_options(is_kingside, king_moved, rook_moved);
         }
 

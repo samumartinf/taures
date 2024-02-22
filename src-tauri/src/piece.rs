@@ -1,17 +1,8 @@
-const PIECE_BIT: u8 = 128u8;
-const WHITE_BIT: u8 = 64u8;
-const PAWN_BIT: u8 = 8u8;
-const CHECK_PIECE: u8 = 0b00001111;
-const KING: u8 = 0u8;
-const QUEEN: u8 = 1u8;
-const BISHOP: u8 = 2u8;
-const KNIGHT: u8 = 4u8;
-const ROOK: u8 = 6u8;
-const ROW: u8 = 8u8;
-const COL: u8 = 1u8;
-
 use crate::board::Board;
 use crate::position_helper;
+use crate::{
+    CHECK_PIECE, COL, ROW, WHITE_BIT,
+};
 
 #[derive(Debug, Clone)]
 pub struct Piece {
@@ -255,7 +246,7 @@ impl Piece {
         let mut blocked_down_right = false;
 
         (1..8)
-            .filter_map(|i| {
+            .flat_map(|i| {
                 let mut moves = Vec::new();
 
                 if col + i < 8 {
@@ -291,10 +282,9 @@ impl Piece {
                         moves.push(position - i - ROW * i);
                     }
                 }
-
-                Some(moves)
+                
+                moves
             })
-            .flatten()
             .filter(|&pos| position_helper::is_position_valid(pos, board, self.is_white))
             .collect()
     }

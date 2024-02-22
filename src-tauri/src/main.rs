@@ -1,7 +1,7 @@
 use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame, Game};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
-use rand::{seq::index, Rng};
+use rand::{Rng};
 use std::sync::{Arc, Mutex};
 
 lazy_static! {
@@ -107,7 +107,7 @@ fn get_legal_moves(source: &str) -> Vec<String> {
             result.push(position_helper::index_to_letter(m.target));
         }
     }
-    return result;
+    result
 }
 
 fn main() -> Result<()> {

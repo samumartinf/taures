@@ -1,0 +1,11 @@
+pub const PIECE_BIT: u8 = 128u8;
+pub const WHITE_BIT: u8 = 64u8;
+pub const PAWN_BIT: u8 = 8u8;
+pub const CHECK_PIECE: u8 = 0b00001111;
+pub const KING: u8 = 0u8;
+pub const QUEEN: u8 = 1u8;
+pub const BISHOP: u8 = 2u8;
+pub const KNIGHT: u8 = 4u8;
+pub const ROOK: u8 = 6u8;
+pub const ROW: u8 = 8u8;
+pub const COL: u8 = 1u8;
