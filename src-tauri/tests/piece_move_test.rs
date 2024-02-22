@@ -14,8 +14,9 @@ const ROOK: u8 = 6u8;
 
 use crate::position_helper;
 use cherris::board::Board;
-use cherris::piece::{BasicPiece, Piece, PieceType};
 use cherris::engine::Engine;
+use cherris::piece::{BasicPiece, Piece, PieceType};
+use std::time::Instant;
 
 #[test]
 fn test_engine() {
@@ -25,7 +26,6 @@ fn test_engine() {
     let best_move = engine.get_best_move(1);
     let allowed_move = engine.game.play_move_ob(&best_move);
     assert!(allowed_move);
-
 }
 
 #[test]
@@ -401,7 +401,6 @@ fn test_en_passant_flag() {
     assert_eq!(game.en_passant, "e3");
 }
 
-
 //TODO: Add tests for the following:
 // - Castling
 // - Promotion
@@ -411,7 +410,9 @@ fn test_en_passant_flag() {
 #[test]
 fn test_why_a8_to_a8_is_possible() {
     let mut game = Game::init();
-    game.set_from_fen("r1b1kbnr/pppp1ppp/2n1pq2/3P4/8/2N5/PPP1PPPP/R1BQKBNR b KQkq - 0 1".to_string());
+    game.set_from_fen(
+        "r1b1kbnr/pppp1ppp/2n1pq2/3P4/8/2N5/PPP1PPPP/R1BQKBNR b KQkq - 0 1".to_string(),
+    );
     let allowed_move = game.play_move_from_string("a8".to_string(), "a8".to_string());
     assert!(!allowed_move);
 }
@@ -459,4 +460,108 @@ fn test_queen_moves_from_fen() {
         .collect::<HashSet<String>>();
     assert_eq!(PIECE_BIT + WHITE_BIT + QUEEN, *white_queen_bits);
     assert_eq!(possible_positions, correct_position);
+}
+
+#[test]
+fn update_castling_after_taken_rook() {
+    /*
+      |----|----|----|----|----|----|----|----|
+    8 | bR | bN | bB | bQ | bK | bB |    | bR |
+      |----|----|----|----|----|----|----|----|
+    7 | bP | bP | bP | bP | bP | bP | bP | bP |
+      |----|----|----|----|----|----|----|----|
+    6 |    |    |    |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    5 |    | wN |    |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    4 |    |    |    |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    3 |    |    |    | wP |    |    | bN |    | <-- This knight can take the rook
+      |----|----|----|----|----|----|----|----|
+    2 | wP | wP | wP |    | wP | wP | wP | wP |
+      |----|----|----|----|----|----|----|----|
+    1 | wR | wN | wB | wQ | wK | wB |    | wR | <-- This rook has been taken
+      |----|----|----|----|----|----|----|----|
+        a    b    c    d    e    f    g    h
+     */
+
+    let mut game = Game::init();
+    game.set_from_fen("rnbqkb1r/pppppppp/8/8/3N4/2PP2n1/PP2PPPP/RNBQKB1R b KQkq - 0 4".to_string());
+    let allowed_move = game.play_move_from_string("g3".to_string(), "h1".to_string());
+    assert!(allowed_move);
+
+    // Check that the castling rights have been updated - the white king should not be able to castle on the kingside
+    assert_eq!(game.board.castling, 0b00000111);
+}
+
+#[test]
+fn test_legal_moves_should_allow_taking_piece_to_avoid_check() {
+    /*
+      |----|----|----|----|----|----|----|----|
+    8 | bR | bN | bB |    | bK | bB | bN | bR |
+      |----|----|----|----|----|----|----|----|
+    7 | bP | bP | bP |    | bP | bP | bP | bP |
+      |----|----|----|----|----|----|----|----|
+    6 |    |    |    |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    5 |    |    |    | wP |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    4 |    |    |    |    |    |    |    |    |
+      |----|----|----|----|----|----|----|----|
+    3 |    |    |    |    | bQ |    |    |    | <-- bQ is checking the white king
+      |----|----|----|----|----|----|----|----|
+    2 | wP | wP |    |    |    | wP | wP | wP | <-- This pawn can take the black queen
+      |----|----|----|----|----|----|----|----|
+    1 | wR | wN | wB | wQ | wK | wB | wN | wR | <-- bishops, queen and knight should be allowed to move if they block the king
+      |----|----|----|----|----|----|----|----|
+        a    b    c    d    e    f    g    h
+
+     */
+    let mut game = Game::init();
+    game.set_from_fen("rnb1kbnr/ppp1pppp/8/3P4/8/4q3/PP3PPP/RNBQKBNR w KQkq - 0 7".to_string());
+    let moves = game.get_legal_moves(game.white_turn);
+    assert_eq!(moves.len(), 5); // take with bishop, take with pawn, block with queen, block with knight, block with bishop
+}
+
+#[test]
+fn test_legal_move_generation() {
+    let start = Instant::now();
+    let moves = count_moves_for_depth(1);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 1: {:?}", elapsed);
+    assert_eq!(moves, 20);
+
+    let start = Instant::now();
+    let moves2 = count_moves_for_depth(2);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 2: {:?}", elapsed);
+    assert_eq!(moves2, 400);
+
+    let start = Instant::now();
+    let moves3 = count_moves_for_depth(3);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 3: {:?}", elapsed);
+    assert_eq!(moves3, 8902);
+
+    let start = Instant::now();
+    let moves4 = count_moves_for_depth(4);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 4: {:?}", elapsed);
+    assert_eq!(moves4, 197281);
+}
+
+fn count_moves_for_depth(depth: u8) -> usize {
+    let mut game = Game::init();
+    if depth == 0 {
+        return 1;
+    }
+    let mut count = 0;
+
+    let moves = game.get_legal_moves(true);
+    for mv in moves {
+        game.play_move_ob(&mv);
+        count += count_moves_for_depth(depth - 1);
+        game.undo_move();
+    }
+    count
 }

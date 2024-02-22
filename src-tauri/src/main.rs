@@ -1,7 +1,7 @@
 use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame, Game};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
-use rand::{Rng};
+use rand::Rng;
 use std::sync::{Arc, Mutex};
 
 lazy_static! {
@@ -19,7 +19,7 @@ fn set_from_fen(fen: &str) -> String {
 #[tauri::command]
 fn play_move(source: &str, target: &str) -> bool {
     let mut game = GAME.lock().unwrap();
-    
+
     game.play_move_from_string(source.to_string(), target.to_string())
 }
 
@@ -72,7 +72,7 @@ fn make_random_move() -> String {
 
     if moves.is_empty() {
         println!("No legal moves available");
-        return "None".to_string(); 
+        return "None".to_string();
     }
 
     // select a random move

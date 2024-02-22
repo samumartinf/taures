@@ -1,8 +1,8 @@
 use std::vec;
 
 pub mod board;
-pub mod piece;
 pub mod constants;
+pub mod piece;
 
 use crate::constants::{
     BISHOP, CHECK_PIECE, COL, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, ROW, WHITE_BIT,
@@ -151,6 +151,7 @@ impl ChessGame for Game {
         moves
     }
 
+    //TODO: Optimize - use bit check instead of init_from_binary
     fn get_all_moves_for_color(&self, white: bool) -> Vec<Move> {
         let mut moves = vec![];
 
@@ -380,8 +381,8 @@ impl ChessGame for Game {
         // Get the piece at the source index
         let piece_bits = self.board.state.get(source_idx as usize).unwrap_or(&0u8);
 
-        // track changes
-        let mut pawn_taken = false;
+        // bool for the half move clock
+        let mut piece_taken = false;
 
         let king_moved = false;
 
@@ -412,14 +413,17 @@ impl ChessGame for Game {
         let taken_piece = self.board.state.get(target_idx as usize);
         let t_piece = taken_piece.unwrap_or(&0u8);
         if *t_piece != 0 {
-            //TODO: store the piece taken and give rewards
             // TODO: This can be sped up by using the binary representation of the piece
+            piece_taken = true;
             let taken_p = Piece::init_from_binary(*t_piece);
             if taken_p.class == PieceType::King {
                 self.game_done = true;
             }
-            if taken_p.class == PieceType::Pawn {
-                pawn_taken = true;
+
+            if taken_p.class == PieceType::Rook {
+                let is_kingside = position_helper::get_col(target_idx) == 7;
+                let rook_moved = false;
+                self.set_castling_options(is_kingside, king_moved, rook_moved, true);
             }
         }
 
@@ -439,7 +443,7 @@ impl ChessGame for Game {
                 }
             }
             // set castling options
-            self.set_castling_options(true, true, true);
+            self.set_castling_options(true, true, true, false);
         }
 
         // Set en passant flag
@@ -449,7 +453,7 @@ impl ChessGame for Game {
         if piece.class == PieceType::Rook {
             let is_kingside = position_helper::get_col(source_idx) == 7;
             let rook_moved = true;
-            self.set_castling_options(is_kingside, king_moved, rook_moved);
+            self.set_castling_options(is_kingside, king_moved, rook_moved, false);
         }
 
         // Manage en passant taking
@@ -462,7 +466,7 @@ impl ChessGame for Game {
         self.white_turn = !self.white_turn;
 
         //update the half move clock
-        if piece.class == PieceType::Pawn || pawn_taken {
+        if piece.class == PieceType::Pawn || piece_taken {
             self.half_move_clock = 0;
         } else {
             self.half_move_clock += 1;
@@ -498,7 +502,33 @@ impl Game {
         en_passant_set
     }
 
-    fn set_castling_options(&mut self, is_kingside: bool, king_moved: bool, rook_moved: bool) {
+    fn set_castling_options(
+        &mut self,
+        is_kingside: bool,
+        king_moved: bool,
+        rook_moved: bool,
+        rook_capture: bool,
+    ) {
+        // handle capture of oposing rook
+        if rook_capture {
+            if self.white_turn {
+                // we remove castling options for the opposite side if capture
+                if is_kingside {
+                    self.board.castling &= 0b1111_1101;
+                } else {
+                    self.board.castling &= 0b1111_1110;
+                }
+            } else {
+                if is_kingside {
+                    self.board.castling &= 0b1111_0111;
+                } else {
+                    self.board.castling &= 0b1111_1011;
+                }
+            }
+            return;
+        }
+
+        // If no rook was captured, update the castling options
         if self.white_turn {
             if king_moved {
                 self.board.castling &= 0b1111_0011;
@@ -604,13 +634,12 @@ pub mod position_helper {
             return false;
         }
 
-        let piece_opt = board.state.get(destination_position as usize);
-        if piece_opt.is_some_and(|x| *x == 0u8) {
+        let piece = board.state[destination_position as usize];
+        if piece == 0 {
             return true;
         }
 
-        let piece_byte = piece_opt.unwrap();
-        let is_white = (piece_byte & WHITE_BIT) == WHITE_BIT;
+        let is_white = (piece & WHITE_BIT) == WHITE_BIT;
 
         if is_white == is_piece_white {
             return false;
