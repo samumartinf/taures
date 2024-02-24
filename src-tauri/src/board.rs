@@ -1,6 +1,4 @@
-use crate::{
-    BISHOP, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, WHITE_BIT,
-};
+use crate::{BISHOP, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, WHITE_BIT};
 
 use crate::piece::{BasicPiece, Piece};
 
@@ -31,7 +29,14 @@ pub struct Board {
     pub castling: u8,
 }
 
+/// Represents a chess board.
+///
+/// The `Board` struct provides methods for displaying the board, getting the castling FEN string,
+/// initializing the board, getting the king position, and setting the start position.
 impl Board {
+    /// Displays the chess board.
+    ///
+    /// This method prints the current state of the chess board to the console.
     pub fn show(&self) {
         println!("  |----|----|----|----|----|----|----|----|");
         let mut row_count = 8;
@@ -59,6 +64,9 @@ impl Board {
         println!("    a    b    c    d    e    f    g    h  ");
     }
 
+    /// Gets the castling FEN string.
+    ///
+    /// This method returns the castling FEN string representing the castling rights of the board.
     pub fn get_castling_fen(&self) -> String {
         let mut castling_fen = String::from("");
         if self.castling & 8u8 == 8u8 {
@@ -79,6 +87,9 @@ impl Board {
         castling_fen
     }
 
+    /// Initializes a new chess board.
+    ///
+    /// This method creates a new instance of the `Board` struct with the initial state of the chess board with no pieces set.
     pub fn init() -> Self {
         let state = [0u8; 64];
         let bitboard = [0u64; 12];
@@ -94,6 +105,35 @@ impl Board {
         }
     }
 
+    /// Gets the position of the king.
+    ///
+    /// This method returns the position of the king on the board for the specified color.
+    ///
+    /// # Arguments
+    ///
+    /// * `is_white` - A boolean indicating whether the king is white or black.
+    ///
+    /// # Returns
+    ///
+    /// The position of the king as a u8 value. If the king is not found, 65 is returned.
+    pub fn get_king_position(&self, is_white: bool) -> u8 {
+        let king_byte = if is_white {
+            PIECE_BIT + WHITE_BIT + KING
+        } else {
+            PIECE_BIT + KING
+        };
+
+        for i in 0..63 {
+            if self.state[i] == king_byte {
+                return i as u8;
+            }
+        }
+        return 65;
+    }
+
+    /// Sets the start position of the chess board.
+    ///
+    /// This method sets the chess board to the standard starting position.
     pub fn set_start_position(&mut self) {
         // Reset the board
         self.state = [0u8; 64];

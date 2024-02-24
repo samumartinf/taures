@@ -1,9 +1,8 @@
 use crate::board::Board;
 use crate::position_helper;
-use crate::{
-    CHECK_PIECE, COL, ROW, WHITE_BIT,
-};
+use crate::{CHECK_PIECE, COL, ROW, WHITE_BIT};
 
+/// Represents a chess piece.
 #[derive(Debug, Clone)]
 pub struct Piece {
     pub binary: u8,
@@ -11,6 +10,7 @@ pub struct Piece {
     pub class: PieceType,
 }
 
+/// Represents the type of a chess piece.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PieceType {
     Pawn,
@@ -22,6 +22,16 @@ pub enum PieceType {
 }
 
 impl Piece {
+    /// Calculates the possible moves for a pawn.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The current position of the pawn.
+    /// * `board` - The chess board.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the possible positions the pawn can move to.
     fn pawn_moves(self, source: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::new();
 
@@ -90,6 +100,16 @@ impl Piece {
         final_positions
     }
 
+    /// Calculates the possible moves for a king.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - The current position of the king.
+    /// * `board` - The chess board.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the possible positions the king can move to.
     fn king_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let offsets = [-9, -8, -7, -1, 1, 7, 8, 9];
         let mut possible_positions = Vec::<u8>::new();
@@ -113,6 +133,16 @@ impl Piece {
         possible_positions
     }
 
+    /// Calculates the possible castling moves for a king.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The current position of the king.
+    /// * `board` - The chess board.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the possible positions the king can castle to.
     fn castling_moves(self, source: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::<u8>::new();
         let mut king_side = false;
@@ -169,6 +199,16 @@ impl Piece {
         possible_positions
     }
 
+    /// Calculates the possible moves for a rook.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The current position of the rook.
+    /// * `board` - The chess board.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the possible positions the rook can move to.
     fn rook_moves(self, source: u8, board: &Board) -> Vec<u8> {
         let mut possible_positions = Vec::<u8>::new();
         let row = position_helper::get_row(source);
@@ -229,6 +269,16 @@ impl Piece {
         final_positions
     }
 
+    /// Calculates the possible moves for a queen.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - The current position of the queen.
+    /// * `board` - The chess board.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the possible positions the queen can move to.
     fn queen_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let mut queen_positions = self.clone().rook_moves(position, board);
         let mut bishop_positions = self.bishop_moves(position, board);
@@ -237,6 +287,16 @@ impl Piece {
         queen_positions.to_vec()
     }
 
+    /// Calculates the possible moves for a bishop.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - The current position of the bishop.
+    /// * `board` - The chess board.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the possible positions the bishop can move to.
     fn bishop_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let row = position_helper::get_row(position);
         let col = position_helper::get_col(position);
@@ -282,13 +342,23 @@ impl Piece {
                         moves.push(position - i - ROW * i);
                     }
                 }
-                
+
                 moves
             })
             .filter(|&pos| position_helper::is_position_valid(pos, board, self.is_white))
             .collect()
     }
 
+    /// Calculates the possible moves for a knight.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - The current position of the knight.
+    /// * `board` - The chess board.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the possible positions the knight can move to.
     fn knight_moves(self, position: u8, board: &Board) -> Vec<u8> {
         let offsets = [-17, -15, -10, -6, 6, 10, 15, 17];
 
@@ -319,6 +389,17 @@ impl Piece {
 }
 
 impl BasicPiece for Piece {
+    /// Calculates the possible positions for the current piece based on its type and position on the board.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The current piece.
+    /// * `position` - The current position of the piece on the board.
+    /// * `board` - The game board.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `u8` representing the possible positions for the current piece.
     fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8> {
         let possible_positions: Vec<u8> = match self.class {
             PieceType::Pawn => Piece::pawn_moves(self.clone(), position, board),
@@ -331,6 +412,15 @@ impl BasicPiece for Piece {
         possible_positions
     }
 
+    /// Initializes a `Piece` struct from a binary representation.
+    ///
+    /// # Arguments
+    ///
+    /// * `binary` - The binary representation of the piece.
+    ///
+    /// # Returns
+    ///
+    /// A `Piece` struct initialized from the binary representation.
     fn init_from_binary(binary: u8) -> Self {
         let is_white = (binary & WHITE_BIT) == WHITE_BIT;
         // The alive bit might mess this up
@@ -353,6 +443,11 @@ impl BasicPiece for Piece {
         }
     }
 
+    /// Returns the text representation of the piece.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the text representation of the piece.
     fn text_repr(&self) -> String {
         let mut return_string = String::from("");
         let color_string: String = if self.is_white {
@@ -374,6 +469,11 @@ impl BasicPiece for Piece {
         return_string
     }
 
+    /// Returns the FEN representation of the piece.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the FEN representation of the piece.
     fn fen_repr(&self) -> String {
         let mut piece_string = match self.class {
             PieceType::Pawn => "P",

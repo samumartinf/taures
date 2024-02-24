@@ -39,7 +39,8 @@ async function onDragStart(source, piece, position, orientation) {
 
   var debugLabelEngine = document.getElementById("debugLabelEngine");
   if (debugLabelEngine) {
-    debugLabelEngine.innerText = "Engine FEN: " + fenFromEngine + ", Piece: " + enginePiece;
+    debugLabelEngine.innerText =
+      "Engine FEN: " + fenFromEngine + ", Piece: " + enginePiece;
   }
 }
 
@@ -48,8 +49,7 @@ async function onDragStart2(source: string, piece, position, orientation) {
   // Update debugInfoBoard and debugInfoEngine labels
   var debugLabelBoard = document.getElementById("debugLabelBoard");
   if (debugLabelBoard) {
-    debugLabelBoard.innerText =
-      "Board FEN: " + fen + ", Piece: " + piece;
+    debugLabelBoard.innerText = "Board FEN: " + fen + ", Piece: " + piece;
   }
 
   var fenFromEngine: string = await invoke("get_fen");
@@ -63,13 +63,17 @@ async function onDragStart2(source: string, piece, position, orientation) {
 
   var possible_moves_from_engine: [string] = await invoke(
     "get_possible_moves",
-    { source: source },
+    { source: source }
   );
 
   var legal_moves = await invoke("get_legal_moves", { source: source });
   var allowedMovesEl = document.getElementById("allowedMoves");
   if (allowedMovesEl) {
-    allowedMovesEl.innerText = "Allowed movez: " + possible_moves_from_engine + ", Legal moves: " + legal_moves;
+    allowedMovesEl.innerText =
+      "Allowed movez: " +
+      possible_moves_from_engine +
+      ", Legal moves: " +
+      legal_moves;
   }
 }
 
@@ -108,9 +112,8 @@ async function onDrop(
   piece: string,
   newPos,
   oldPos,
-  orientation,
+  orientation
 ) {
-
   // Check if move is legal
   var move: boolean = await invoke("play_move", {
     source: source,

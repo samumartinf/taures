@@ -8,6 +8,7 @@ use crate::constants::{
     BISHOP, CHECK_PIECE, COL, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, ROW, WHITE_BIT,
 };
 use board::Board;
+use color_eyre::owo_colors::OwoColorize;
 use piece::{BasicPiece, Piece, PieceType};
 
 #[derive(Debug, Clone)]
@@ -30,6 +31,7 @@ pub struct Game {
 }
 
 pub trait ChessGame {
+    fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move>;
     fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool;
     fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool;
     fn play_move_ob(&mut self, chess_move: &Move) -> bool;
@@ -88,7 +90,11 @@ pub struct Move {
     pub promotion: u8, // piece to promote to
 }
 
+/// Implements the `ChessGame` trait for the `Game` struct.
+/// This trait provides methods for playing chess moves, getting legal moves, removing illegal moves, and more.
 impl ChessGame for Game {
+    /// Returns a vector of legal moves for the specified color.
+    /// The `white` parameter indicates whether the moves are for the white player.
     fn get_legal_moves(&self, white: bool) -> Vec<Move> {
         // get my king position
         let mut king_position = 0;
@@ -136,6 +142,41 @@ impl ChessGame for Game {
         final_moves
     }
 
+    /// Removes illegal moves from the given vector of moves.
+    /// Returns a new vector containing only the legal moves.
+    fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move> {
+        let mut game_copy = self.clone();
+        let mut final_moves: Vec<Move> = vec![];
+        let king_position = self.board.get_king_position(self.white_turn);
+        if king_position == 65u8 {
+            let move_vec: Vec<Move> = vec![];
+            return move_vec
+        }
+
+        for mv in moves {
+            let success = game_copy.play_move_ob(&mv.clone());
+            if !success {
+                continue;
+            }
+            let oponent_moves = self.get_all_moves_for_color(game_copy.white_turn);
+            let mut king_in_check = false;
+            for oponent_move in oponent_moves {
+                if oponent_move.target == king_position as u8 {
+                    game_copy.undo_move();
+                    king_in_check = true;
+                    break;
+                }
+            }
+            if !king_in_check {
+                final_moves.push(mv);
+            }
+            game_copy.undo_move();
+        }
+        final_moves
+    }
+
+    /// Plays the specified move if it is a legal move.
+    /// Returns `true` if the move was played successfully, `false` otherwise.
     fn play_legal_move(&mut self, mv: &Move) -> bool {
         let legal_moves = self.get_legal_moves(self.white_turn);
         if legal_moves.contains(mv) {
@@ -145,6 +186,8 @@ impl ChessGame for Game {
         false
     }
 
+    /// Returns a vector of capture moves for the current player.
+    /// A capture move is a move that captures an opponent's piece.
     fn get_capture_moves(&self) -> Vec<Move> {
         let mut moves = self.get_legal_moves(self.white_turn);
         moves.retain(|x| self.board.state[x.target as usize] != 0);
@@ -152,6 +195,8 @@ impl ChessGame for Game {
     }
 
     //TODO: Optimize - use bit check instead of init_from_binary
+    /// Returns a vector of all possible moves for the specified color incluiding captures.
+    /// The `white` parameter indicates whether the moves are for the white player.
     fn get_all_moves_for_color(&self, white: bool) -> Vec<Move> {
         let mut moves = vec![];
 
@@ -160,10 +205,14 @@ impl ChessGame for Game {
             if piece == 0 {
                 continue;
             }
-            let piece = Piece::init_from_binary(piece);
-            if piece.is_white != white {
+
+            // avoid initialising the piece unless we have to get the moves
+            let is_piece_white: bool = piece & WHITE_BIT != 0;
+            if white != is_piece_white {
                 continue;
             }
+
+            let piece = Piece::init_from_binary(piece);
             let possible_moves = piece.possible_moves(square as u8, &self.board.clone());
             for move_position in possible_moves {
                 moves.push(Move {
@@ -176,6 +225,9 @@ impl ChessGame for Game {
         moves
     }
 
+    /// Returns a vector of pseudolegal moves for the specified source square.
+    /// Pseudolegal moves are moves that are valid according to the rules of chess,
+    /// but may leave the king in check.
     fn get_pseudolegal_moves(&self, source_square: String) -> Vec<String> {
         let position_index = position_helper::letter_to_index(source_square);
         let piece_opt = self.board.state.get(position_index as usize);
@@ -212,6 +264,8 @@ impl ChessGame for Game {
         self.full_move_number = 1i32;
     }
 
+    /// Plays the specified move by calling the `play_move` method with the move's source and target squares.
+    /// Returns `true` if the move was played successfully, `false` otherwise.
     fn play_move_ob(&mut self, chess_move: &Move) -> bool {
         self.play_move(chess_move.source, chess_move.target)
     }
@@ -335,6 +389,8 @@ impl ChessGame for Game {
         fen_string
     }
 
+    /// Returns a simplified FEN (Forsyth–Edwards Notation) string representing the current game state.
+    /// The simplified FEN string does not include the turn, castling options, en passant, half move clock, and full move number.
     fn get_fen_simple(&self) -> String {
         let mut fen_string = "".to_string();
         let mut empty_count = 0;
@@ -398,24 +454,42 @@ impl ChessGame for Game {
         }
 
         let possible_moves = piece.possible_moves(source_idx, &self.board);
-        // TODO: ensure these moves are actually legal, not just "pseudo legal"
-
         // Early return if the move is not possible
         if !possible_moves.contains(&target_idx) {
             return false;
         }
 
-        // Move must be possible - continue
+        // filter out illegal moves
+        let new_possible_moves: Vec<Move> = possible_moves.iter().map(|idx| {
+            Move {
+                source: source_idx,
+                target: *idx,
+                promotion: 0u8,
+            }
+        }).collect();
+        let possible_moves = self.remove_illegal_moves(new_possible_moves);
+
+        let mut is_move_legal = false;
+        for mv in possible_moves {
+            if mv.target == target_idx {
+                is_move_legal = true;
+                break;
+            }
+        }
+        if !is_move_legal {
+            return false;
+        }
+
+        // Move must be possible and legal - continue
         // Update the previous positions vector
         let previous_fen = self.get_fen();
 
         // Take piece
-        let taken_piece = self.board.state.get(target_idx as usize);
-        let t_piece = taken_piece.unwrap_or(&0u8);
-        if *t_piece != 0 {
+        let t_piece = self.board.state[target_idx as usize];
+        if t_piece != 0 {
             // TODO: This can be sped up by using the binary representation of the piece
             piece_taken = true;
-            let taken_p = Piece::init_from_binary(*t_piece);
+            let taken_p = Piece::init_from_binary(t_piece);
             if taken_p.class == PieceType::King {
                 self.game_done = true;
             }
