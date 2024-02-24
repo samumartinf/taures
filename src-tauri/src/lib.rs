@@ -44,7 +44,7 @@ pub trait ChessGame {
     fn get_all_moves_for_color(&self, white: bool) -> Vec<Move>;
     fn get_capture_moves(&self) -> Vec<Move>;
     fn get_legal_moves(&self, white: bool) -> Vec<Move>;
-    fn play_legal_move(&mut self, mv: &Move) -> bool;
+    // fn play_legal_move(&mut self, mv: &Move) -> bool;
 }
 
 pub trait ChessDebugInfo {
@@ -175,21 +175,21 @@ impl ChessGame for Game {
         final_moves
     }
 
-    /// Plays the specified move if it is a legal move.
-    /// Returns `true` if the move was played successfully, `false` otherwise.
-    fn play_legal_move(&mut self, mv: &Move) -> bool {
-        let legal_moves = self.get_legal_moves(self.white_turn);
-        if legal_moves.contains(mv) {
-            self.play_move_ob(mv);
-            return true;
-        }
-        false
-    }
+    // /// Plays the specified move if it is a legal move.
+    // /// Returns `true` if the move was played successfully, `false` otherwise.
+    // fn play_legal_move(&mut self, mv: &Move) -> bool {
+    //     let legal_moves = self.get_legal_moves(self.white_turn);
+    //     if legal_moves.contains(mv) {
+    //         self.play_move_ob(mv);
+    //         return true;
+    //     }
+    //     false
+    // }
 
     /// Returns a vector of capture moves for the current player.
     /// A capture move is a move that captures an opponent's piece.
     fn get_capture_moves(&self) -> Vec<Move> {
-        let mut moves = self.get_legal_moves(self.white_turn);
+        let mut moves = self.get_all_moves_for_color(self.white_turn);
         moves.retain(|x| self.board.state[x.target as usize] != 0);
         moves
     }
@@ -459,26 +459,26 @@ impl ChessGame for Game {
             return false;
         }
 
-        // filter out illegal moves
-        let new_possible_moves: Vec<Move> = possible_moves.iter().map(|idx| {
-            Move {
-                source: source_idx,
-                target: *idx,
-                promotion: 0u8,
-            }
-        }).collect();
-        let possible_moves = self.remove_illegal_moves(new_possible_moves);
+        // // filter out illegal moves
+        // let new_possible_moves: Vec<Move> = possible_moves.iter().map(|idx| {
+        //     Move {
+        //         source: source_idx,
+        //         target: *idx,
+        //         promotion: 0u8,
+        //     }
+        // }).collect();
+        // let possible_moves = self.remove_illegal_moves(new_possible_moves);
 
-        let mut is_move_legal = false;
-        for mv in possible_moves {
-            if mv.target == target_idx {
-                is_move_legal = true;
-                break;
-            }
-        }
-        if !is_move_legal {
-            return false;
-        }
+        // let mut is_move_legal = false;
+        // for mv in possible_moves {
+        //     if mv.target == target_idx {
+        //         is_move_legal = true;
+        //         break;
+        //     }
+        // }
+        // if !is_move_legal {
+        //     return false;
+        // }
 
         // Move must be possible and legal - continue
         // Update the previous positions vector
@@ -801,7 +801,8 @@ pub mod engine {
                 full_depth -= 1;
             }
 
-            let moves = self.game.get_legal_moves(self.game.white_turn);
+            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            // let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
                 // make the move
                 let success = self.game.play_move_ob(&mv);
@@ -834,7 +835,8 @@ pub mod engine {
                 return Engine::evaluate(&self.game.board);
             }
             let mut best_score = -100000;
-            let moves = self.game.get_legal_moves(self.game.white_turn);
+            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            // let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
                 let success = self.game.play_move_ob(&mv);
                 if !success {
