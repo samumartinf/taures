@@ -1,6 +1,11 @@
 use std::path::PrefixComponent;
 
 use crate::board::Board;
+use crate::constants::BISHOP;
+use crate::constants::KNIGHT;
+use crate::constants::PIECE_BIT;
+use crate::constants::QUEEN;
+use crate::constants::ROOK;
 use crate::position_helper;
 use crate::Move;
 use crate::{CHECK_PIECE, COL, ROW, WHITE_BIT};
@@ -107,6 +112,61 @@ impl Piece {
                 target: diagonal_left as u8,
                 promotion: 0,
             });
+        }
+
+        //TODO: Remove the "unpromoted" pawn move
+        // Generate the white promotions
+        if col == 7 && self.is_white {
+            for i in 0..possible_moves.len(){
+                let mv = possible_moves[i];
+                if mv.target == 8u8 {
+                    // append promotions
+                    let mut queen_mv = mv.clone();
+                    queen_mv.promotion = PIECE_BIT + WHITE_BIT + QUEEN;
+
+                    let mut bishop_mv = mv.clone();
+                    bishop_mv.promotion = PIECE_BIT + WHITE_BIT + BISHOP;
+
+                    let mut rook_mv = mv.clone();
+                    rook_mv.promotion = PIECE_BIT + WHITE_BIT + ROOK;
+
+                    let mut knight_mv = mv.clone();
+                    knight_mv.promotion = PIECE_BIT + WHITE_BIT + KNIGHT;
+
+                    possible_moves.push(queen_mv);
+                    possible_moves.push(bishop_mv);
+                    possible_moves.push(rook_mv);
+                    possible_moves.push(knight_mv);
+
+                }
+            }
+        }
+
+        // Generate black promotions
+        if col == 2 && !self.is_white {
+            for i in 0..possible_moves.len() {
+                let mv = possible_moves[i];
+                if mv.target == 8u8 {
+                    // append promotions
+                    let mut queen_mv = mv.clone();
+                    queen_mv.promotion = PIECE_BIT + QUEEN;
+
+                    let mut bishop_mv = mv.clone();
+                    bishop_mv.promotion = PIECE_BIT + BISHOP;
+
+                    let mut rook_mv = mv.clone();
+                    rook_mv.promotion = PIECE_BIT + ROOK;
+
+                    let mut knight_mv = mv.clone();
+                    knight_mv.promotion = PIECE_BIT + KNIGHT;
+
+                    possible_moves.push(queen_mv);
+                    possible_moves.push(bishop_mv);
+                    possible_moves.push(rook_mv);
+                    possible_moves.push(knight_mv);
+
+                }
+            }
         }
 
         let mut final_positions = Vec::new();

@@ -17,10 +17,10 @@ fn set_from_fen(fen: &str) -> String {
 }
 
 #[tauri::command]
-fn play_move(source: &str, target: &str) -> bool {
+fn play_move(source: &str, target: &str, promotion: &str) -> bool {
     let mut game = &mut ENGINE.lock().unwrap().game;
 
-    game.play_move_from_string(source.to_string(), target.to_string())
+    game.play_move_from_string(source, target, promotion)
 }
 
 #[tauri::command]

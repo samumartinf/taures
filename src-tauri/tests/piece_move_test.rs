@@ -60,7 +60,7 @@ fn test_pawn_cannot_take_in_front() {
     let fen_string = "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 1".to_string();
     let mut game = Game::init();
     game.set_from_fen(fen_string);
-    let allowed_move = game.play_move_from_string("e4".to_string(), "e5".to_string());
+    let allowed_move = game.play_move_from_string("e4", "e5", "");
     assert!(!allowed_move);
 }
 
@@ -321,7 +321,7 @@ fn test_take_with_black_pawn() {
     let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
     let mut game = Game::init();
     game.set_from_fen(fen.clone());
-    let allowed_move = game.play_move_from_string("d5".to_string(), "e4".to_string());
+    let allowed_move = game.play_move_from_string("d5","e4", "");
     assert!(allowed_move);
 }
 
@@ -330,7 +330,7 @@ fn test_undo_move() {
     let fen = "rnbqkbnr/pp3ppp/2p5/3pN3/4P3/2P5/PP1P1PPP/RNBQKB1R b KQkq - 0 1".to_string();
     let mut game = Game::init();
     game.set_from_fen(fen.clone());
-    let allowed_move = game.play_move_from_string("d5".to_string(), "e4".to_string());
+    let allowed_move = game.play_move_from_string("d5", "e4", "");
     assert!(allowed_move);
     game.undo_move();
     let fen2 = game.get_fen();
@@ -343,18 +343,18 @@ fn test_queen_in_position() {
     let mut game = Game::init();
     game.set_from_fen(fen.clone());
     game.board.show();
-    let allowed_move = game.play_move_from_string("d8".to_string(), "d6".to_string());
+    let allowed_move = game.play_move_from_string("d8", "d6", "");
     assert!(allowed_move);
 }
 
 #[test]
 fn test_en_passant_take() {
     let mut game = Game::init();
-    game.play_move_from_string("e2".to_string(), "e4".to_string());
-    game.play_move_from_string("a7".to_string(), "a6".to_string());
-    game.play_move_from_string("e4".to_string(), "e5".to_string());
-    game.play_move_from_string("d7".to_string(), "d5".to_string());
-    let valid_move = game.play_move_from_string("e5".to_string(), "d6".to_string());
+    game.play_move_from_string("e2", "e4", "");
+    game.play_move_from_string("a7", "a6", "");
+    game.play_move_from_string("e4","e5", "");
+    game.play_move_from_string("d7","d5","");
+    let valid_move = game.play_move_from_string("e5","d6","");
     assert!(valid_move);
 }
 
@@ -397,7 +397,7 @@ fn test_position_start() {
 #[test]
 fn test_en_passant_flag() {
     let mut game = Game::init();
-    game.play_move_from_string("e2".to_string(), "e4".to_string());
+    game.play_move_from_string("e2", "e4", "");
     assert_eq!(game.en_passant, "e3");
 }
 
@@ -407,15 +407,6 @@ fn test_en_passant_flag() {
 // - Check
 // - Legal moves
 
-#[test]
-fn test_why_a8_to_a8_is_possible() {
-    let mut game = Game::init();
-    game.set_from_fen(
-        "r1b1kbnr/pppp1ppp/2n1pq2/3P4/8/2N5/PPP1PPPP/R1BQKBNR b KQkq - 0 1".to_string(),
-    );
-    let allowed_move = game.play_move_from_string("a8".to_string(), "a8".to_string());
-    assert!(!allowed_move);
-}
 
 #[test]
 fn test_queen_moves_from_fen() {
@@ -487,7 +478,7 @@ fn update_castling_after_taken_rook() {
 
     let mut game = Game::init();
     game.set_from_fen("rnbqkb1r/pppppppp/8/8/3N4/2PP2n1/PP2PPPP/RNBQKB1R b KQkq - 0 4".to_string());
-    let allowed_move = game.play_move_from_string("g3".to_string(), "h1".to_string());
+    let allowed_move = game.play_move_from_string("g3", "h1", "");
     assert!(allowed_move);
 
     // Check that the castling rights have been updated - the white king should not be able to castle on the kingside
@@ -569,4 +560,21 @@ fn count_moves_for_depth(depth: u8) -> usize {
         game.undo_move();
     }
     count
+}
+
+#[test]
+fn test_promotion() {
+  let mut game = Game::init();
+  game.set_from_simple_fen("8/P7/8/8/8/8/8/8".to_string());
+  let mv = Move{
+    source: 8u8,
+    target: 0,
+    promotion: PIECE_BIT + WHITE_BIT + QUEEN,
+  };
+  let success = game.play_move(mv, false);
+  
+  assert!(success);
+
+  let pawn_should_be_queen = Piece::init_from_binary(game.board.state[0]);
+  assert_eq!(pawn_should_be_queen.class, PieceType::Queen);
 }

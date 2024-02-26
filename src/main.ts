@@ -129,10 +129,20 @@ async function onDrop(
   oldPos,
   orientation
 ) {
+
+  var promotion_piece: string = "";
+  if (piece === "p" && target[1] === "1") {
+    // promotion for black
+    promotion_piece = "q";
+  } else if (piece === "P" && target[1] === "8") {
+    promotion_piece = "Q";
+  }
+
   // Check if move is legal
   var move: boolean = await invoke("play_move", {
     source: source,
     target: target,
+    promotion: promotion_piece,
   });
 
   console.log("Move: " + move);

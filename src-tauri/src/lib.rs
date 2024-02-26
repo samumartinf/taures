@@ -31,8 +31,8 @@ pub struct Game {
 
 pub trait ChessGame {
     fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move>;
-    fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool;
-    fn play_move(&mut self, initial_position: u8, final_position: u8, legal: bool) -> bool;
+    fn play_move_from_string(&mut self, initial_position: &str, final_position: &str, promotion_piece: &str) -> bool;
+    fn play_move(&mut self, mv: Move, legal: bool) -> bool;
     fn play_move_ob(&mut self, chess_move: &Move) -> bool;
     fn get_fen(&self) -> String;
     fn set_from_simple_fen(&mut self, fen: String) -> bool;
@@ -214,13 +214,23 @@ impl ChessGame for Game {
     /// Plays the specified move by calling the `play_move` method with the move's source and target squares.
     /// Returns `true` if the move was played successfully, `false` otherwise.
     fn play_move_ob(&mut self, chess_move: &Move) -> bool {
-        self.play_move(chess_move.source, chess_move.target, false)
+        self.play_move(*chess_move, false)
     }
 
-    fn play_move_from_string(&mut self, source_square: String, target_square: String) -> bool {
-        let initial_position_byte = position_helper::letter_to_index(source_square);
-        let final_position_byte = position_helper::letter_to_index(target_square);
-        self.play_move(initial_position_byte, final_position_byte, true)
+    fn play_move_from_string(&mut self, source_square: &str, target_square: &str, promotion_piece: &str) -> bool {
+        let initial_position_byte = position_helper::letter_to_index(source_square.to_string());
+        let final_position_byte = position_helper::letter_to_index(target_square.to_string());
+        let promotion =  match promotion_piece {
+            "Q" => PIECE_BIT + WHITE_BIT + QUEEN,
+            "q" => PIECE_BIT + QUEEN,
+            _ => 0,
+        };
+        let mv = Move {
+            source: initial_position_byte,
+            target: final_position_byte,
+            promotion: 0,
+        };
+        self.play_move(mv, true)
     }
 
     fn set_from_simple_fen(&mut self, fen: String) -> bool {
@@ -406,8 +416,7 @@ impl ChessGame for Game {
         fen_string
     }
 
-    fn play_move(&mut self, source_idx: u8, target_idx: u8, check_move_legality: bool) -> bool {
-        let my_move = Move{ source: source_idx, target: target_idx, promotion: 0};
+    fn play_move(&mut self, mv: Move, check_move_legality: bool) -> bool {
         if self.game_done {
             let _winning_side: String = if self.white_turn {
                 "Black".to_string()
@@ -419,7 +428,7 @@ impl ChessGame for Game {
         }
 
         // Get the piece at the source index
-        let piece_bits = self.board.state.get(source_idx as usize).unwrap_or(&0u8);
+        let piece_bits = self.board.state.get(mv.source as usize).unwrap_or(&0u8);
 
         // bool for the half move clock
         let mut piece_taken = false;
@@ -438,9 +447,9 @@ impl ChessGame for Game {
         }
 
         if check_move_legality {
-            let possible_moves = piece.possible_moves(source_idx, &self.board);
+            let possible_moves = piece.possible_moves(mv.source, &self.board);
             // Early return if the move is not possible
-            if !possible_moves.contains(&my_move) {
+            if !possible_moves.contains(&mv) {
                 return false;
             }
         }
@@ -450,7 +459,7 @@ impl ChessGame for Game {
         let previous_fen = self.get_fen();
 
         // Take piece
-        let t_piece = self.board.state[target_idx as usize];
+        let t_piece = self.board.state[mv.target as usize];
         if t_piece != 0 {
             // TODO: This can be sped up by using the binary representation of the piece
             piece_taken = true;
@@ -460,7 +469,7 @@ impl ChessGame for Game {
             }
 
             if taken_p.class == PieceType::Rook {
-                let is_kingside = position_helper::get_col(target_idx) == 7;
+                let is_kingside = position_helper::get_col(mv.target) == 7;
                 let rook_moved = false;
                 self.set_castling_options(is_kingside, king_moved, rook_moved, true);
             }
@@ -468,7 +477,7 @@ impl ChessGame for Game {
 
         // Handle castling
         if piece.class == PieceType::King {
-            let difference = target_idx as i32 - source_idx as i32;
+            let difference = mv.target as i32 - mv.source as i32;
             if difference.abs() == 2 {
                 let king_side = difference > 0;
                 if king_side {
@@ -486,20 +495,25 @@ impl ChessGame for Game {
         }
 
         // Set en passant flag
-        let en_passant_set: bool = self.set_en_passant_flag(&piece, source_idx, target_idx);
+        let en_passant_set: bool = self.set_en_passant_flag(&piece, mv.source, mv.target);
 
         // Update castling options if rook is moved
         if piece.class == PieceType::Rook {
-            let is_kingside = position_helper::get_col(source_idx) == 7;
+            let is_kingside = position_helper::get_col(mv.source) == 7;
             let rook_moved = true;
             self.set_castling_options(is_kingside, king_moved, rook_moved, false);
         }
 
         // Manage en passant taking
-        self.en_passant_taking(&piece, target_idx);
+        self.en_passant_taking(&piece, mv.target);
 
         // update the board
-        self.update_board_object(&piece, source_idx, target_idx, en_passant_set);
+        // Handle promotion
+        if piece.class == PieceType::Pawn && mv.promotion != 0 {
+            self.update_board_object(&Piece::init_from_binary(mv.promotion), mv.source, mv.target, en_passant_set);
+        } else {
+            self.update_board_object(&piece, mv.source, mv.target, en_passant_set);
+        }
         self.previous_fen_positions.push(previous_fen);
 
         self.white_turn = !self.white_turn;
