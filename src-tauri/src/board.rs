@@ -14,7 +14,7 @@ pub struct Board {
     pub bitboard: [u64; 12],
 
     /// The hash value of the current board position.
-    pub hash: u64,
+    pub hash_value: u64,
 
     /// The en passant square on the board.
     /// If no en passant square is available, it is set to 0.
@@ -99,7 +99,7 @@ impl Board {
         Self {
             state,
             bitboard,
-            hash,
+            hash_value: hash,
             en_passant,
             castling,
         }

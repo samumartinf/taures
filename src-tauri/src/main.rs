@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 lazy_static! {
     static ref GAME: Arc<Mutex<Game>> = Arc::new(Mutex::new(Game::init()));
+    static ref ENGINE: Arc<Mutex<Engine>> = Arc::new(Mutex::new(Engine::init()));
 }
 
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -88,7 +89,7 @@ fn make_random_move() -> String {
 fn play_best_move(depth: i32) -> String {
     println!("Playing best move with depth: {}", depth);
     let mut game = GAME.lock().unwrap();
-    let mut engine = Engine::init_from_game(game.clone());
+    let mut engine = ENGINE.lock().unwrap();
     let best_move = engine.get_best_move(depth as u8);
     let source_square = position_helper::index_to_letter(best_move.source);
     let target_square = position_helper::index_to_letter(best_move.target);

@@ -99,7 +99,7 @@ impl ChessGame for Game {
     fn get_legal_moves(&self, white: bool) -> Vec<Move> {
         // define the filter function
         let moves = self.get_all_moves_for_color(white);
-        self.remove_illegal_moves(moves) 
+        self.remove_illegal_moves(moves)
     }
 
     /// Removes illegal moves from the given vector of pseudolegal moves.
@@ -451,7 +451,7 @@ impl ChessGame for Game {
                 return false;
             }
         }
-            
+
         // Move must be pseudolegal
         // Update the previous positions vector
         let previous_fen = self.get_fen();
@@ -696,6 +696,13 @@ pub mod position_helper {
 }
 
 pub mod engine {
+    use std::collections::hash_map::DefaultHasher;
+    use std::collections::HashMap;
+    use std::hash;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+    use std::time::Instant;
+
     use crate::position_helper;
     use crate::psqt;
     use crate::Board;
@@ -706,18 +713,40 @@ pub mod engine {
 
     pub struct Engine {
         pub game: Game,
+        pub positions_evaluated: HashMap<u64, i32>,
+        num_positions_evaluated: i64,
+        cache_hits_last_eval: i64,
     }
 
     impl Engine {
         pub fn init() -> Engine {
-            Engine { game: Game::init() }
+            Engine {
+                game: Game::init(),
+                positions_evaluated: HashMap::new(),
+                num_positions_evaluated: 0,
+                cache_hits_last_eval: 0,
+            }
         }
 
         pub fn init_from_game(game: Game) -> Engine {
-            Engine { game }
+            Engine {
+                game,
+                positions_evaluated: HashMap::new(),
+                num_positions_evaluated: 0,
+                cache_hits_last_eval: 0,
+            }
         }
 
-        pub fn evaluate(board: &Board) -> i32 {
+        pub fn evaluate(&mut self, board: &Board) -> i32 {
+            // early return from hashed positions eval
+            let mut hasher = DefaultHasher::new();
+            board.hash(&mut hasher);
+            let board_hash = hasher.finish();
+            if self.positions_evaluated.contains_key(&board_hash) {
+                self.cache_hits_last_eval += 1;
+                return self.positions_evaluated[&board_hash];
+            }
+
             let mut score = 0;
 
             // TODO: check for middle game and end game
@@ -756,10 +785,16 @@ pub mod engine {
                     score -= position_value;
                 }
             }
+            self.positions_evaluated.insert(board_hash, score);
+
             score
         }
 
         pub fn get_best_move(&mut self, depth: u8) -> Move {
+
+            let start = Instant::now();
+            self.num_positions_evaluated = 0;
+            self.cache_hits_last_eval = 0;
             let mut best_move = Move {
                 source: 0,
                 target: 0,
@@ -773,7 +808,7 @@ pub mod engine {
                 full_depth -= 1;
             }
 
-            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            let moves = self.game.get_legal_moves(self.game.white_turn);
             // let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
                 // make the move
@@ -798,13 +833,27 @@ pub mod engine {
                 println!("No legal moves available");
                 return best_move;
             }
-            println!("Best move: {}{} - score: {}", source, target, best_score);
+            println!(
+                "Best move: {}{} - score: {}",
+                source, target, best_score, 
+            );
+
+            let cash_hit_rate = self.cache_hits_last_eval as f32 / self.num_positions_evaluated as f32;
+
+            println!(
+                "We evaluated {} positions with {} cache hits {}% rate in {:?}",
+                self.num_positions_evaluated, self.cache_hits_last_eval,
+                cash_hit_rate*100f32, start.elapsed(),
+            );
             best_move
         }
 
         pub fn alpha_beta(&mut self, depth: u8, mut alpha: i32, beta: i32) -> i32 {
+            // Update the counter
+            self.num_positions_evaluated += 1;
+
             if depth == 0 {
-                return Engine::evaluate(&self.game.board);
+                return self.evaluate(&self.game.board.clone());
             }
             let mut best_score = -100000;
             let moves = self.game.get_all_moves_for_color(self.game.white_turn);
