@@ -520,35 +520,40 @@ fn test_legal_moves_should_allow_taking_piece_to_avoid_check() {
     let mut game = Game::init();
     game.set_from_fen("rnb1kbnr/ppp1pppp/8/3P4/8/4q3/PP3PPP/RNBQKBNR w KQkq - 0 7".to_string());
     let moves = game.get_legal_moves(game.white_turn);
+    for mv in moves.clone() {
+      let source = position_helper::index_to_letter(mv.source);
+      let target = position_helper::index_to_letter(mv.target);
+      println!("source: {source} to {target}");
+    }
     assert_eq!(moves.len(), 5); // take with bishop, take with pawn, block with queen, block with knight, block with bishop
 }
 
-// #[test]
-// fn test_legal_move_generation() {
-//     let start = Instant::now();
-//     let moves = count_moves_for_depth(1);
-//     let elapsed = start.elapsed();
-//     println!("Time taken for depth 1: {:?}", elapsed);
-//     assert_eq!(moves, 20);
+#[test]
+fn test_legal_move_generation() {
+    let start = Instant::now();
+    let moves = count_moves_for_depth(1);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 1: {:?}", elapsed);
+    assert_eq!(moves, 20);
 
-//     let start = Instant::now();
-//     let moves2 = count_moves_for_depth(2);
-//     let elapsed = start.elapsed();
-//     println!("Time taken for depth 2: {:?}", elapsed);
-//     assert_eq!(moves2, 400);
+    let start = Instant::now();
+    let moves2 = count_moves_for_depth(2);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 2: {:?}", elapsed);
+    assert_eq!(moves2, 400);
 
-//     let start = Instant::now();
-//     let moves3 = count_moves_for_depth(3);
-//     let elapsed = start.elapsed();
-//     println!("Time taken for depth 3: {:?}", elapsed);
-//     assert_eq!(moves3, 8902);
+    let start = Instant::now();
+    let moves3 = count_moves_for_depth(3);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 3: {:?}", elapsed);
+    assert_eq!(moves3, 8902);
 
-//     let start = Instant::now();
-//     let moves4 = count_moves_for_depth(4);
-//     let elapsed = start.elapsed();
-//     println!("Time taken for depth 4: {:?}", elapsed);
-//     assert_eq!(moves4, 197281);
-// }
+    let start = Instant::now();
+    let moves4 = count_moves_for_depth(4);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 4: {:?}", elapsed);
+    assert_eq!(moves4, 197281);
+}
 
 fn count_moves_for_depth(depth: u8) -> usize {
     let mut game = Game::init();

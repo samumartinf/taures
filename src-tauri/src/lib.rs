@@ -33,7 +33,7 @@ pub struct Game {
 pub trait ChessGame {
     fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move>;
     fn play_move_from_string(&mut self, initial_position: String, final_position: String) -> bool;
-    fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool;
+    fn play_move(&mut self, initial_position: u8, final_position: u8, legal: bool) -> bool;
     fn play_move_ob(&mut self, chess_move: &Move) -> bool;
     fn get_fen(&self) -> String;
     fn set_from_simple_fen(&mut self, fen: String) -> bool;
@@ -97,58 +97,19 @@ impl ChessGame for Game {
     /// Returns a vector of legal moves for the specified color.
     /// The `white` parameter indicates whether the moves are for the white player.
     fn get_legal_moves(&self, white: bool) -> Vec<Move> {
-        // get my king position
-        let mut king_position = 0;
-        for i in 0..64 {
-            let piece = self.board.state[i];
-            if piece == 0 {
-                continue;
-            }
-            let piece = Piece::init_from_binary(piece);
-            if piece.class == PieceType::King && piece.is_white == white {
-                king_position = i;
-                break;
-            }
-        }
-
-        let mut game_copy = self.clone();
         // define the filter function
-        let mut final_moves: Vec<Move> = vec![];
-        for mv in self.get_all_moves_for_color(white) {
-            let success = game_copy.play_move_ob(&mv.clone());
-
-            // if the move is illegal, skip it
-            if !success {
-                continue;
-            }
-            let oponent_moves = self.get_all_moves_for_color(!self.white_turn);
-            let mut king_in_check = false;
-
-            // check if the king is in check
-            for oponent_move in oponent_moves {
-                if oponent_move.target == king_position as u8 {
-                    game_copy.undo_move();
-                    king_in_check = true;
-                    break;
-                }
-            }
-
-            // if the king is not in check, add the move to the final moves
-            if !king_in_check {
-                final_moves.push(mv);
-            }
-            game_copy.undo_move();
-        }
-
-        final_moves
+        let moves = self.get_all_moves_for_color(white);
+        self.remove_illegal_moves(moves) 
     }
 
-    /// Removes illegal moves from the given vector of moves.
+    /// Removes illegal moves from the given vector of pseudolegal moves.
     /// Returns a new vector containing only the legal moves.
     fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move> {
         let mut game_copy = self.clone();
         let mut final_moves: Vec<Move> = vec![];
-        let king_position = self.board.get_king_position(self.white_turn);
+        let mut king_position = game_copy.board.get_king_position(self.white_turn);
+
+        // No king found
         if king_position == 65u8 {
             let move_vec: Vec<Move> = vec![];
             return move_vec;
@@ -156,13 +117,16 @@ impl ChessGame for Game {
 
         let mut king_in_check;
         for mv in moves {
-            let success = game_copy.play_move_ob(&mv.clone());
+            let success = game_copy.play_move_ob(&mv);
+
+            // check for the original king's positions
+            king_position = game_copy.board.get_king_position(!game_copy.white_turn);
             if !success {
                 continue;
             }
 
             king_in_check = false;
-            let oponent_moves = self.get_all_moves_for_color(game_copy.white_turn);
+            let oponent_moves = game_copy.get_all_moves_for_color(game_copy.white_turn);
             for oponent_move in oponent_moves {
                 if oponent_move.target == king_position as u8 {
                     king_in_check = true;
@@ -176,17 +140,6 @@ impl ChessGame for Game {
         }
         final_moves
     }
-
-    // /// Plays the specified move if it is a legal move.
-    // /// Returns `true` if the move was played successfully, `false` otherwise.
-    // fn play_legal_move(&mut self, mv: &Move) -> bool {
-    //     let legal_moves = self.get_legal_moves(self.white_turn);
-    //     if legal_moves.contains(mv) {
-    //         self.play_move_ob(mv);
-    //         return true;
-    //     }
-    //     false
-    // }
 
     /// Returns a vector of capture moves for the current player.
     /// A capture move is a move that captures an opponent's piece.
@@ -269,13 +222,13 @@ impl ChessGame for Game {
     /// Plays the specified move by calling the `play_move` method with the move's source and target squares.
     /// Returns `true` if the move was played successfully, `false` otherwise.
     fn play_move_ob(&mut self, chess_move: &Move) -> bool {
-        self.play_move(chess_move.source, chess_move.target)
+        self.play_move(chess_move.source, chess_move.target, false)
     }
 
     fn play_move_from_string(&mut self, source_square: String, target_square: String) -> bool {
         let initial_position_byte = position_helper::letter_to_index(source_square);
         let final_position_byte = position_helper::letter_to_index(target_square);
-        self.play_move(initial_position_byte, final_position_byte)
+        self.play_move(initial_position_byte, final_position_byte, true)
     }
 
     fn set_from_simple_fen(&mut self, fen: String) -> bool {
@@ -461,7 +414,7 @@ impl ChessGame for Game {
         fen_string
     }
 
-    fn play_move(&mut self, source_idx: u8, target_idx: u8) -> bool {
+    fn play_move(&mut self, source_idx: u8, target_idx: u8, check_move_legality: bool) -> bool {
         if self.game_done {
             let _winning_side: String = if self.white_turn {
                 "Black".to_string()
@@ -491,12 +444,14 @@ impl ChessGame for Game {
             return false;
         }
 
-        let possible_moves = piece.possible_moves(source_idx, &self.board);
-        // Early return if the move is not possible
-        if !possible_moves.contains(&target_idx) {
-            return false;
+        if check_move_legality {
+            let possible_moves = piece.possible_moves(source_idx, &self.board);
+            // Early return if the move is not possible
+            if !possible_moves.contains(&target_idx) {
+                return false;
+            }
         }
-
+            
         // Move must be pseudolegal
         // Update the previous positions vector
         let previous_fen = self.get_fen();
@@ -853,7 +808,7 @@ pub mod engine {
             }
             let mut best_score = -100000;
             let moves = self.game.get_all_moves_for_color(self.game.white_turn);
-            // let moves = self.game.remove_illegal_moves(moves);
+            let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
                 let success = self.game.play_move_ob(&mv);
                 if !success {

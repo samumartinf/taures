@@ -2,7 +2,7 @@ use crate::{BISHOP, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, WHITE_BIT};
 
 use crate::piece::{BasicPiece, Piece};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 /// Represents a chess board.
 pub struct Board {
     /// The state of the chess board represented as an array of 64 bytes.
@@ -116,6 +116,7 @@ impl Board {
     /// # Returns
     ///
     /// The position of the king as a u8 value. If the king is not found, 65 is returned.
+    //TODO: change this to return an Option
     pub fn get_king_position(&self, is_white: bool) -> u8 {
         let king_byte = if is_white {
             PIECE_BIT + WHITE_BIT + KING
@@ -128,7 +129,7 @@ impl Board {
                 return i as u8;
             }
         }
-        return 65;
+        65
     }
 
     /// Sets the start position of the chess board.
