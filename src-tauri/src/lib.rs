@@ -36,6 +36,7 @@ pub trait ChessGame {
     fn play_move(&mut self, initial_position: u8, final_position: u8) -> bool;
     fn play_move_ob(&mut self, chess_move: &Move) -> bool;
     fn get_fen(&self) -> String;
+    fn set_from_simple_fen(&mut self, fen: String) -> bool;
     fn set_from_fen(&mut self, fen: String);
     fn get_fen_simple(&self) -> String;
     fn restart(&mut self);
@@ -98,7 +99,7 @@ impl ChessGame for Game {
     fn get_legal_moves(&self, white: bool) -> Vec<Move> {
         // get my king position
         let mut king_position = 0;
-        for i in 0..63 {
+        for i in 0..64 {
             let piece = self.board.state[i];
             if piece == 0 {
                 continue;
@@ -150,19 +151,20 @@ impl ChessGame for Game {
         let king_position = self.board.get_king_position(self.white_turn);
         if king_position == 65u8 {
             let move_vec: Vec<Move> = vec![];
-            return move_vec
+            return move_vec;
         }
 
+        let mut king_in_check;
         for mv in moves {
             let success = game_copy.play_move_ob(&mv.clone());
             if !success {
                 continue;
             }
+
+            king_in_check = false;
             let oponent_moves = self.get_all_moves_for_color(game_copy.white_turn);
-            let mut king_in_check = false;
             for oponent_move in oponent_moves {
                 if oponent_move.target == king_position as u8 {
-                    game_copy.undo_move();
                     king_in_check = true;
                     break;
                 }
@@ -274,6 +276,42 @@ impl ChessGame for Game {
         let initial_position_byte = position_helper::letter_to_index(source_square);
         let final_position_byte = position_helper::letter_to_index(target_square);
         self.play_move(initial_position_byte, final_position_byte)
+    }
+
+    fn set_from_simple_fen(&mut self, fen: String) -> bool {
+        // Reset the board
+        self.board = Board::init();
+
+        // Set the board state
+        let mut board_state_index = 0;
+        for c in fen.chars() {
+            if c == '/' {
+                continue;
+            }
+            if c.is_numeric() {
+                let num = c.to_digit(10).unwrap();
+                board_state_index += num;
+            } else {
+                // Set the piece
+                let mut piece = PIECE_BIT;
+                if c.is_uppercase() {
+                    piece += WHITE_BIT;
+                }
+                match c {
+                    'p' | 'P' => piece += PAWN_BIT,
+                    'r' | 'R' => piece += ROOK,
+                    'n' | 'N' => piece += KNIGHT,
+                    'b' | 'B' => piece += BISHOP,
+                    'q' | 'Q' => piece += QUEEN,
+                    'k' | 'K' => piece += KING,
+                    _ => panic!("This piece does not exist!"),
+                }
+                let index: usize = board_state_index.try_into().unwrap();
+                self.board.state[index] = piece;
+                board_state_index += 1;
+            }
+        }
+        return true;
     }
 
     fn set_from_fen(&mut self, fen: String) {
@@ -459,28 +497,7 @@ impl ChessGame for Game {
             return false;
         }
 
-        // // filter out illegal moves
-        // let new_possible_moves: Vec<Move> = possible_moves.iter().map(|idx| {
-        //     Move {
-        //         source: source_idx,
-        //         target: *idx,
-        //         promotion: 0u8,
-        //     }
-        // }).collect();
-        // let possible_moves = self.remove_illegal_moves(new_possible_moves);
-
-        // let mut is_move_legal = false;
-        // for mv in possible_moves {
-        //     if mv.target == target_idx {
-        //         is_move_legal = true;
-        //         break;
-        //     }
-        // }
-        // if !is_move_legal {
-        //     return false;
-        // }
-
-        // Move must be possible and legal - continue
+        // Move must be pseudolegal
         // Update the previous positions vector
         let previous_fen = self.get_fen();
 

@@ -123,7 +123,7 @@ impl Board {
             PIECE_BIT + KING
         };
 
-        for i in 0..63 {
+        for i in 0..64 {
             if self.state[i] == king_byte {
                 return i as u8;
             }

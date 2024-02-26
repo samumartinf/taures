@@ -110,6 +110,12 @@ fn get_legal_moves(source: &str) -> Vec<String> {
     result
 }
 
+#[tauri::command]
+fn set_fen(fen: &str) -> bool {
+    let mut game = GAME.lock().unwrap();
+    game.set_from_simple_fen(fen.to_string())
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
 
@@ -127,6 +133,7 @@ fn main() -> Result<()> {
             make_random_move,
             play_best_move,
             get_legal_moves,
+            set_fen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

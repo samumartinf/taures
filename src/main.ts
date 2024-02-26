@@ -106,6 +106,21 @@ function getFen() {
   console.log("Board FEN: " + board.fen());
 }
 
+
+//TODO: Figure out which where the text of the input is stored
+async function setFen() {
+  var input = document.getElementById("FenInput")
+  console.log(input);
+  console.log(input?.innerHTML);
+  if (input) {
+    var fen: string = input.innerText;
+    var success = await invoke("set_fen", {fen: fen})
+    if (success) {
+      board.position(fen);
+    }
+  }
+}
+
 async function onDrop(
   source: string,
   target: string,
@@ -138,4 +153,5 @@ window.addEventListener("DOMContentLoaded", () => {
   $("#showPositionBtn").on("click", showPosition);
   $("#randomMoveBtn").on("click", makeRandomMove);
   $("#bestMoveBtn").on("click", makeBestMove);
+  $("#setFenBtn").on("click", setFen);
 });

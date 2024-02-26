@@ -166,7 +166,7 @@ impl Piece {
 
         if king_side {
             let mut blocked = false;
-            for i in 1..2 {
+            for i in 1..=2 {
                 let position_to_check = source + i;
                 blocked = board.state[position_to_check as usize] != 0u8;
                 if blocked {
@@ -182,7 +182,7 @@ impl Piece {
 
         if queen_side {
             let mut blocked = false;
-            for i in 1..3 {
+            for i in 1..=3 {
                 let position_to_check = source - i;
                 blocked = board.state[position_to_check as usize] != 0u8;
                 if blocked {
