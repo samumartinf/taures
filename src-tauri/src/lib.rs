@@ -808,7 +808,7 @@ pub mod engine {
                 full_depth -= 1;
             }
 
-            let moves = self.game.get_legal_moves(self.game.white_turn);
+            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
             // let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
                 // make the move
