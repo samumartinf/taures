@@ -50,7 +50,7 @@ fn test_pawn_initial_move_emtpy_board() {
     let possible_positions: Vec<String> = white_pawn
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     assert_eq!(possible_positions, vec!["a3", "a4"]);
 }
@@ -73,7 +73,7 @@ fn test_king_moves_empty_board() {
     let mut possible_positions: Vec<String> = king
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     possible_positions.sort();
     println!(
@@ -92,7 +92,7 @@ fn test_rook_moves_empty_board() {
     let possible_positions: HashSet<String> = rook
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from {} for the rook are: {:?}",
@@ -117,7 +117,7 @@ fn test_rook_moves_starting_board() {
     let possible_positions: HashSet<String> = rook
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from {} for the rook are: {:?}",
@@ -135,7 +135,7 @@ fn test_bishop_moves_empty_board() {
     let possible_positions: HashSet<String> = bishop
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from {} for the bishop are: {:?}",
@@ -160,7 +160,7 @@ fn test_bishop_moves_starting_board() {
     let possible_positions: HashSet<String> = bishop
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from {} for the bishop are: {:?}",
@@ -180,7 +180,7 @@ fn test_queen_moves_starting_board() {
     let possible_positions: HashSet<String> = queen
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from {} for the queen are: {:?}",
@@ -199,7 +199,7 @@ fn test_queen_moves_empty_board() {
     let possible_positions: HashSet<String> = queen
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from {} for the queen are: {:?}",
@@ -224,7 +224,7 @@ fn test_knight_moves_empty_board() {
     let possible_positions: HashSet<String> = knight
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from {} for the knight are: {:?}",
@@ -246,7 +246,7 @@ fn test_knight_move_edge_board() {
     let possible_positions: HashSet<String> = knight
         .possible_moves(position, &board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from {} for the knight are: {:?}",
@@ -448,7 +448,7 @@ fn test_queen_moves_from_fen() {
     let possible_positions: HashSet<String> = queen
         .possible_moves(initial_position, &game.board)
         .iter()
-        .map(|x| position_helper::index_to_letter(*x))
+        .map(|x| position_helper::index_to_letter(x.target))
         .collect();
     println!(
         "The positions from d1 for the queen are: {:?}",

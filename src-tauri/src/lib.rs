@@ -8,7 +8,6 @@ use crate::constants::{
     BISHOP, CHECK_PIECE, COL, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, ROW, WHITE_BIT,
 };
 use board::Board;
-use color_eyre::owo_colors::OwoColorize;
 use piece::{BasicPiece, Piece, PieceType};
 
 #[derive(Debug, Clone)]
@@ -168,14 +167,7 @@ impl ChessGame for Game {
             }
 
             let piece = Piece::init_from_binary(piece);
-            let possible_moves = piece.possible_moves(square as u8, &self.board.clone());
-            for move_position in possible_moves {
-                moves.push(Move {
-                    source: square as u8,
-                    target: move_position,
-                    promotion: 0u8,
-                })
-            }
+            moves.append(&mut piece.possible_moves(square as u8, &self.board));
         }
         moves
     }
@@ -194,7 +186,7 @@ impl ChessGame for Game {
         piece
             .possible_moves(position_index, &self.board)
             .iter()
-            .map(|x| position_helper::index_to_letter(*x))
+            .map(|x| position_helper::index_to_letter(x.target))
             .collect()
     }
 
@@ -415,6 +407,7 @@ impl ChessGame for Game {
     }
 
     fn play_move(&mut self, source_idx: u8, target_idx: u8, check_move_legality: bool) -> bool {
+        let my_move = Move{ source: source_idx, target: target_idx, promotion: 0};
         if self.game_done {
             let _winning_side: String = if self.white_turn {
                 "Black".to_string()
@@ -447,7 +440,7 @@ impl ChessGame for Game {
         if check_move_legality {
             let possible_moves = piece.possible_moves(source_idx, &self.board);
             // Early return if the move is not possible
-            if !possible_moves.contains(&target_idx) {
+            if !possible_moves.contains(&my_move) {
                 return false;
             }
         }

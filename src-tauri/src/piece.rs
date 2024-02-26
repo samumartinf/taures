@@ -1,5 +1,8 @@
+use std::path::PrefixComponent;
+
 use crate::board::Board;
 use crate::position_helper;
+use crate::Move;
 use crate::{CHECK_PIECE, COL, ROW, WHITE_BIT};
 
 /// Represents a chess piece.
@@ -32,8 +35,8 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the pawn can move to.
-    fn pawn_moves(self, source: u8, board: &Board) -> Vec<u8> {
-        let mut possible_positions = Vec::new();
+    fn pawn_moves(self, source: u8, board: &Board) -> Vec<Move> {
+        let mut possible_moves = Vec::new();
 
         // White pawns move in the negative direction
         let multiplier: i16 = if self.is_white { -1 } else { 1 };
@@ -47,7 +50,11 @@ impl Piece {
             .get((one_row) as usize)
             .is_some_and(|x| *x == 0u8)
         {
-            possible_positions.push(one_row);
+            possible_moves.push(Move {
+                source: source,
+                target: one_row as u8,
+                promotion: 0,
+            });
         }
 
         if move_double_forward == position_helper::get_row(source)
@@ -60,7 +67,11 @@ impl Piece {
                 .get((one_row) as usize)
                 .is_some_and(|x| *x == 0u8)
         {
-            possible_positions.push(two_rows);
+            possible_moves.push(Move {
+                source: source,
+                target: two_rows as u8,
+                promotion: 0,
+            });
         }
 
         //Handle taking pieces
@@ -77,7 +88,11 @@ impl Piece {
                 .is_some_and(|x| *x != 0u8)
                 || board.en_passant == diagonal_right as u8)
         {
-            possible_positions.push(diagonal_right);
+            possible_moves.push(Move {
+                source: source,
+                target: diagonal_right as u8,
+                promotion: 0,
+            });
         }
 
         if col > 0
@@ -87,16 +102,19 @@ impl Piece {
                 .is_some_and(|x| *x != 0u8)
                 || board.en_passant == diagonal_left as u8)
         {
-            possible_positions.push(diagonal_left);
+            possible_moves.push(Move {
+                source: source,
+                target: diagonal_left as u8,
+                promotion: 0,
+            });
         }
 
         let mut final_positions = Vec::new();
-        for pos in possible_positions {
-            if position_helper::is_position_valid(pos as u8, board, self.is_white) {
-                final_positions.push(pos as u8);
+        for mv in possible_moves {
+            if position_helper::is_position_valid(mv.target, board, self.is_white) {
+                final_positions.push(mv);
             }
         }
-
         final_positions
     }
 
@@ -110,25 +128,29 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the king can move to.
-    fn king_moves(self, position: u8, board: &Board) -> Vec<u8> {
+    fn king_moves(self, source: u8, board: &Board) -> Vec<Move> {
         let offsets = [-9, -8, -7, -1, 1, 7, 8, 9];
-        let mut possible_positions = Vec::<u8>::new();
-        let row = position_helper::get_row(position) as i16;
-        let col = position_helper::get_col(position) as i16;
+        let mut possible_positions = Vec::<Move>::new();
+        let row = position_helper::get_row(source) as i16;
+        let col = position_helper::get_col(source) as i16;
         for offset in offsets.iter() {
-            let new_position = position as i16 + offset;
+            let new_position = source as i16 + offset;
             if (position_helper::get_row(new_position as u8) as i16 - row).abs() > 1
                 || (position_helper::get_col(new_position as u8) as i16 - col).abs() > 1
             {
                 continue;
             }
             if position_helper::is_position_valid(new_position as u8, board, self.is_white) {
-                possible_positions.push(new_position as u8);
+                possible_positions.push(Move {
+                    source: source,
+                    target: new_position as u8,
+                    promotion: 0,
+                });
             }
         }
 
         // Handle castling
-        possible_positions.append(&mut self.castling_moves(position, board));
+        possible_positions.append(&mut self.castling_moves(source, board));
 
         possible_positions
     }
@@ -143,8 +165,8 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the king can castle to.
-    fn castling_moves(self, source: u8, board: &Board) -> Vec<u8> {
-        let mut possible_positions = Vec::<u8>::new();
+    fn castling_moves(self, source: u8, board: &Board) -> Vec<Move> {
+        let mut possible_positions = Vec::<Move>::new();
         let mut king_side = false;
         let mut queen_side = false;
 
@@ -176,7 +198,11 @@ impl Piece {
             let piece_at_rook = board.state[(source + 3) as usize];
             let rook = Piece::init_from_binary(piece_at_rook);
             if !blocked && rook.class == PieceType::Rook {
-                possible_positions.push(source + 2);
+                possible_positions.push(Move {
+                    source: source,
+                    target: source + 2,
+                    promotion: 0,
+                });
             }
         }
 
@@ -192,7 +218,11 @@ impl Piece {
             let piece_at_rook = board.state[(source - 4) as usize];
             let rook = Piece::init_from_binary(piece_at_rook);
             if !blocked && rook.class == PieceType::Rook {
-                possible_positions.push(source - 2);
+                possible_positions.push(Move {
+                    source: source,
+                    target: source - 2,
+                    promotion: 0,
+                });
             }
         }
 
@@ -209,8 +239,8 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the rook can move to.
-    fn rook_moves(self, source: u8, board: &Board) -> Vec<u8> {
-        let mut possible_positions = Vec::<u8>::new();
+    fn rook_moves(self, source: u8, board: &Board) -> Vec<Move> {
+        let mut possible_positions = Vec::<Move>::new();
         let row = position_helper::get_row(source);
         let col = position_helper::get_col(source);
 
@@ -228,7 +258,11 @@ impl Piece {
 
                 // If a piece is found, we are now blocked from moving forward
                 blocked_right = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(source + i);
+                possible_positions.push(Move {
+                    source: source,
+                    target: source + i,
+                    promotion: 0,
+                });
             }
             if i <= col && !blocked_left {
                 // check left boundary
@@ -237,7 +271,11 @@ impl Piece {
 
                 // If a piece is found, we are now blocked from moving forward
                 blocked_left = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(source - i);
+                possible_positions.push(Move {
+                    source: source,
+                    target: source - i,
+                    promotion: 0,
+                });
             }
             if row + i < 8 && !blocked_down {
                 // check lower boundary
@@ -246,7 +284,11 @@ impl Piece {
 
                 // If a piece is found, we are now blocked from moving forward
                 blocked_down = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(source + ROW * i);
+                possible_positions.push(Move {
+                    source: source,
+                    target: source + ROW * i,
+                    promotion: 0,
+                });
             }
             if i <= row && !blocked_up {
                 // check upper boundary
@@ -254,15 +296,18 @@ impl Piece {
                 let piece_retrieved = board.state.get(position_to_check as usize);
 
                 blocked_up = piece_retrieved.is_some_and(|x| *x != 0u8);
-                possible_positions.push(source - ROW * i);
+                possible_positions.push(Move {
+                    source: source,
+                    target: source - ROW * i,
+                    promotion: 0,
+                });
             }
         }
 
-        // Handle castling
         let mut final_positions = Vec::new();
-        for pos in possible_positions {
-            if position_helper::is_position_valid(pos, board, self.is_white) {
-                final_positions.push(pos);
+        for mv in possible_positions {
+            if position_helper::is_position_valid(mv.target, board, self.is_white) {
+                final_positions.push(mv);
             }
         }
 
@@ -279,12 +324,12 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the queen can move to.
-    fn queen_moves(self, position: u8, board: &Board) -> Vec<u8> {
-        let mut queen_positions = self.clone().rook_moves(position, board);
-        let mut bishop_positions = self.bishop_moves(position, board);
+    fn queen_moves(self, position: u8, board: &Board) -> Vec<Move> {
+        let mut queen_moves = self.clone().rook_moves(position, board);
+        let mut bishop_moves = self.bishop_moves(position, board);
 
-        queen_positions.append(&mut bishop_positions);
-        queen_positions.to_vec()
+        queen_moves.append(&mut bishop_moves);
+        queen_moves.to_vec()
     }
 
     /// Calculates the possible moves for a bishop.
@@ -297,9 +342,9 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the bishop can move to.
-    fn bishop_moves(self, position: u8, board: &Board) -> Vec<u8> {
-        let row = position_helper::get_row(position);
-        let col = position_helper::get_col(position);
+    fn bishop_moves(self, source: u8, board: &Board) -> Vec<Move> {
+        let row = position_helper::get_row(source);
+        let col = position_helper::get_col(source);
         let mut blocked_up_left = false;
         let mut blocked_down_left = false;
         let mut blocked_up_right = false;
@@ -311,41 +356,57 @@ impl Piece {
 
                 if col + i < 8 {
                     if row + i < 8 && !blocked_down_right {
-                        let position_to_check = position + i + ROW * i;
+                        let position_to_check = source + i + ROW * i;
                         let piece_retrieved = board.state.get(position_to_check as usize);
 
                         blocked_down_right = piece_retrieved.is_some_and(|x| *x != 0u8);
-                        moves.push(position + i + ROW * i);
+                        moves.push(Move {
+                            source: source,
+                            target: source + i + ROW * i,
+                            promotion: 0,
+                        });
                     }
                     if i <= row && !blocked_up_right {
-                        let position_to_check = position + i - ROW * i;
+                        let position_to_check = source + i - ROW * i;
                         let piece_retrieved = board.state.get(position_to_check as usize);
 
                         blocked_up_right = piece_retrieved.is_some_and(|x| *x != 0u8);
-                        moves.push(position + i - ROW * i);
+                        moves.push(Move {
+                            source: source,
+                            target: source + i - ROW * i,
+                            promotion: 0,
+                        });
                     }
                 }
 
                 if i <= col {
                     if row + i < 8 && !blocked_down_left {
-                        let position_to_check = position - i + ROW * i;
+                        let position_to_check = source - i + ROW * i;
                         let piece_retrieved = board.state.get(position_to_check as usize);
 
                         blocked_down_left = piece_retrieved.is_some_and(|x| *x != 0u8);
-                        moves.push(position - i + ROW * i);
+                        moves.push(Move {
+                            source: source,
+                            target: source - i + ROW * i,
+                            promotion: 0,
+                        });
                     }
                     if i <= row && !blocked_up_left {
-                        let position_to_check = position - i - ROW * i;
+                        let position_to_check = source - i - ROW * i;
                         let piece_retrieved = board.state.get(position_to_check as usize);
 
                         blocked_up_left = piece_retrieved.is_some_and(|x| *x != 0u8);
-                        moves.push(position - i - ROW * i);
+                        moves.push(Move {
+                            source: source,
+                            target: (source - i - ROW * i),
+                            promotion: 0,
+                        });
                     }
                 }
 
                 moves
             })
-            .filter(|&pos| position_helper::is_position_valid(pos, board, self.is_white))
+            .filter(|&mv| position_helper::is_position_valid(mv.target, board, self.is_white))
             .collect()
     }
 
@@ -359,10 +420,10 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the knight can move to.
-    fn knight_moves(self, position: u8, board: &Board) -> Vec<u8> {
+    fn knight_moves(self, position: u8, board: &Board) -> Vec<Move> {
         let offsets = [-17, -15, -10, -6, 6, 10, 15, 17];
 
-        let mut possible_positions = Vec::<u8>::new();
+        let mut possible_positions = Vec::<Move>::new();
         let row = position_helper::get_row(position) as i16;
         let col = position_helper::get_col(position) as i16;
 
@@ -374,13 +435,17 @@ impl Piece {
                 continue;
             }
             if position_helper::is_position_valid(new_position as u8, board, self.is_white) {
-                possible_positions.push(new_position as u8);
+                possible_positions.push(Move {
+                    source: position,
+                    target: new_position as u8,
+                    promotion: 0,
+                });
             }
         }
         let mut final_positions = Vec::new();
-        for pos in possible_positions {
-            if position_helper::is_position_valid(pos, board, self.is_white) {
-                final_positions.push(pos);
+        for mv in possible_positions {
+            if position_helper::is_position_valid(mv.target, board, self.is_white) {
+                final_positions.push(mv);
             }
         }
 
@@ -400,8 +465,8 @@ impl BasicPiece for Piece {
     /// # Returns
     ///
     /// A vector of `u8` representing the possible positions for the current piece.
-    fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8> {
-        let possible_positions: Vec<u8> = match self.class {
+    fn possible_moves(&self, position: u8, board: &Board) -> Vec<Move> {
+        let possible_positions: Vec<Move> = match self.class {
             PieceType::Pawn => Piece::pawn_moves(self.clone(), position, board),
             PieceType::King => Piece::king_moves(self.clone(), position, board),
             PieceType::Bishop => Piece::bishop_moves(self.clone(), position, board),
@@ -494,6 +559,6 @@ impl BasicPiece for Piece {
 pub trait BasicPiece {
     fn init_from_binary(binary: u8) -> Self;
     fn text_repr(&self) -> String;
-    fn possible_moves(&self, position: u8, board: &Board) -> Vec<u8>;
+    fn possible_moves(&self, position: u8, board: &Board) -> Vec<Move>;
     fn fen_repr(&self) -> String;
 }
