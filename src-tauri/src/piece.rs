@@ -40,7 +40,7 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the pawn can move to.
-    fn pawn_moves(self, source: u8, board: &Board) -> Vec<Move> {
+    fn pawn_moves(&self, source: u8, board: &Board) -> Vec<Move> {
         let mut possible_moves = Vec::new();
 
         // White pawns move in the negative direction
@@ -188,7 +188,7 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the king can move to.
-    fn king_moves(self, source: u8, board: &Board) -> Vec<Move> {
+    fn king_moves(&self, source: u8, board: &Board) -> Vec<Move> {
         let offsets = [-9, -8, -7, -1, 1, 7, 8, 9];
         let mut possible_positions = Vec::<Move>::new();
         let row = position_helper::get_row(source) as i16;
@@ -225,7 +225,7 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the king can castle to.
-    fn castling_moves(self, source: u8, board: &Board) -> Vec<Move> {
+    fn castling_moves(&self, source: u8, board: &Board) -> Vec<Move> {
         let mut possible_positions = Vec::<Move>::new();
         let mut king_side = false;
         let mut queen_side = false;
@@ -299,7 +299,7 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the rook can move to.
-    fn rook_moves(self, source: u8, board: &Board) -> Vec<Move> {
+    fn rook_moves(&self, source: u8, board: &Board) -> Vec<Move> {
         let mut possible_positions = Vec::<Move>::new();
         let row = position_helper::get_row(source);
         let col = position_helper::get_col(source);
@@ -384,7 +384,7 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the queen can move to.
-    fn queen_moves(self, position: u8, board: &Board) -> Vec<Move> {
+    fn queen_moves(&self, position: u8, board: &Board) -> Vec<Move> {
         let mut queen_moves = self.clone().rook_moves(position, board);
         let mut bishop_moves = self.bishop_moves(position, board);
 
@@ -402,7 +402,7 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the bishop can move to.
-    fn bishop_moves(self, source: u8, board: &Board) -> Vec<Move> {
+    fn bishop_moves(&self, source: u8, board: &Board) -> Vec<Move> {
         let row = position_helper::get_row(source);
         let col = position_helper::get_col(source);
         let mut blocked_up_left = false;
@@ -480,7 +480,7 @@ impl Piece {
     /// # Returns
     ///
     /// A vector containing the possible positions the knight can move to.
-    fn knight_moves(self, position: u8, board: &Board) -> Vec<Move> {
+    fn knight_moves(&self, position: u8, board: &Board) -> Vec<Move> {
         let offsets = [-17, -15, -10, -6, 6, 10, 15, 17];
 
         let mut possible_positions = Vec::<Move>::new();
@@ -527,12 +527,12 @@ impl BasicPiece for Piece {
     /// A vector of `u8` representing the possible positions for the current piece.
     fn possible_moves(&self, position: u8, board: &Board) -> Vec<Move> {
         let possible_positions: Vec<Move> = match self.class {
-            PieceType::Pawn => Piece::pawn_moves(self.clone(), position, board),
-            PieceType::King => Piece::king_moves(self.clone(), position, board),
-            PieceType::Bishop => Piece::bishop_moves(self.clone(), position, board),
-            PieceType::Queen => Piece::queen_moves(self.clone(), position, board),
-            PieceType::Rook => Piece::rook_moves(self.clone(), position, board),
-            PieceType::Knight => Piece::knight_moves(self.clone(), position, board),
+            PieceType::Pawn => Piece::pawn_moves(&self, position, board),
+            PieceType::King => Piece::king_moves(&self, position, board),
+            PieceType::Bishop => Piece::bishop_moves(&self, position, board),
+            PieceType::Queen => Piece::queen_moves(&self, position, board),
+            PieceType::Rook => Piece::rook_moves(&self, position, board),
+            PieceType::Knight => Piece::knight_moves(&self, position, board),
         };
         possible_positions
     }

@@ -10,7 +10,7 @@ var config = {
   onSnapEnd: onSnapEnd,
   position: "start",
   onDrop: onDrop,
-  onDragStart: onDragStart2,
+  onDragStart: onDragStart,
   pieceTheme: pieceTheme,
 };
 
@@ -27,24 +27,7 @@ function pieceTheme(piece: string) {
   return "src/assets/chessPieces/" + piece + ".svg";
 }
 
-async function onDragStart(source, piece, position, orientation) {
-  var fen: string = board.fen();
-  // Update debugInfoBoard and debugInfoEngine labels
-  var debugLabelBoard = document.getElementById("debugLabelBoard");
-  if (debugLabelBoard) {
-    debugLabelBoard.innerText = "Board FEN: " + fen + ", Piece: " + piece;
-  }
-  var fenFromEngine: string = await invoke("get_fen_simple");
-  var enginePiece = await invoke("get_piece_at_square", { square: source });
-
-  var debugLabelEngine = document.getElementById("debugLabelEngine");
-  if (debugLabelEngine) {
-    debugLabelEngine.innerText =
-      "Engine FEN: " + fenFromEngine + ", Piece: " + enginePiece;
-  }
-}
-
-async function onDragStart2(source: string, piece, position, orientation) {
+async function onDragStart(source: string, piece) {
   var fen: string = board.fen();
   // Update debugInfoBoard and debugInfoEngine labels
   var debugLabelBoard = document.getElementById("debugLabelBoard");
@@ -125,9 +108,6 @@ async function onDrop(
   source: string,
   target: string,
   piece: string,
-  newPos,
-  oldPos,
-  orientation
 ) {
 
   var promotion_piece: string = "";

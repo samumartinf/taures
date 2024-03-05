@@ -525,24 +525,24 @@ fn test_legal_move_generation() {
     let moves = count_moves_for_depth(1);
     let elapsed = start.elapsed();
     println!("Time taken for depth 1: {:?}", elapsed);
-    assert_eq!(moves, 20);
-
+    
     let start = Instant::now();
     let moves2 = count_moves_for_depth(2);
     let elapsed = start.elapsed();
     println!("Time taken for depth 2: {:?}", elapsed);
-    assert_eq!(moves2, 400);
-
+    
     let start = Instant::now();
     let moves3 = count_moves_for_depth(3);
     let elapsed = start.elapsed();
     println!("Time taken for depth 3: {:?}", elapsed);
-    assert_eq!(moves3, 8902);
-
+    
     let start = Instant::now();
     let moves4 = count_moves_for_depth(4);
     let elapsed = start.elapsed();
     println!("Time taken for depth 4: {:?}", elapsed);
+    assert_eq!(moves, 20);
+    assert_eq!(moves2, 400);
+    assert_eq!(moves3, 8902);
     assert_eq!(moves4, 197281);
 }
 
@@ -553,7 +553,7 @@ fn count_moves_for_depth(depth: u8) -> usize {
     }
     let mut count = 0;
 
-    let moves = game.get_legal_moves(true);
+    let moves = game.get_all_moves_for_color(true);
     for mv in moves {
         game.play_move_ob(&mv);
         count += count_moves_for_depth(depth - 1);
