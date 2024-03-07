@@ -1,4 +1,4 @@
-use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame, Game};
+use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
 use rand::Rng;
@@ -11,64 +11,64 @@ lazy_static! {
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #[tauri::command]
 fn set_from_fen(fen: &str) -> String {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.set_from_fen(fen.to_string());
     game.get_fen()
 }
 
 #[tauri::command]
 fn play_move(source: &str, target: &str, promotion: &str) -> bool {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
 
     game.play_move_from_string(source, target, promotion)
 }
 
 #[tauri::command]
 fn restart_game() {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.restart();
 }
 
 #[tauri::command]
 fn undo_move() {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.undo_move();
 }
 
 #[tauri::command]
 fn get_possible_moves(source: &str) -> Vec<String> {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.undo_move();
     game.get_pseudolegal_moves(source.to_string())
 }
 
 #[tauri::command]
 fn get_fen() -> String {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.get_fen()
 }
 
 #[tauri::command]
 fn get_fen_simple() -> String {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.get_fen_simple()
 }
 
 #[tauri::command]
 fn get_piece_at_square(square: &str) -> String {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.get_piece_at_square(square.to_string())
 }
 
 #[tauri::command]
 fn get_position_string() {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.board.show()
 }
 
 #[tauri::command]
 fn make_random_move() -> String {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     let moves = game.get_legal_moves(game.white_turn);
 
     if moves.is_empty() {
@@ -99,7 +99,7 @@ fn play_best_move(depth: i32) -> String {
 
 #[tauri::command]
 fn get_legal_moves(source: &str) -> Vec<String> {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     let moves = game.get_legal_moves(game.white_turn);
     let mut result = Vec::new();
     for m in moves {
@@ -112,7 +112,7 @@ fn get_legal_moves(source: &str) -> Vec<String> {
 
 #[tauri::command]
 fn set_fen(fen: &str) -> bool {
-    let mut game = &mut ENGINE.lock().unwrap().game;
+    let game = &mut ENGINE.lock().unwrap().game;
     game.set_from_simple_fen(fen.to_string())
 }
 

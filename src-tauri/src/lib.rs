@@ -220,7 +220,7 @@ impl ChessGame for Game {
     fn play_move_from_string(&mut self, source_square: &str, target_square: &str, promotion_piece: &str) -> bool {
         let initial_position_byte = position_helper::letter_to_index(source_square.to_string());
         let final_position_byte = position_helper::letter_to_index(target_square.to_string());
-        let promotion =  match promotion_piece {
+        let _promotion =  match promotion_piece {
             "Q" => PIECE_BIT + WHITE_BIT + QUEEN,
             "q" => PIECE_BIT + QUEEN,
             _ => 0,
@@ -705,7 +705,6 @@ pub mod position_helper {
 pub mod engine {
     use std::collections::hash_map::DefaultHasher;
     use std::collections::HashMap;
-    use std::hash;
     use std::hash::Hash;
     use std::hash::Hasher;
     use std::time::Instant;

@@ -1,3 +1,4 @@
+import { resolveResource } from "@tauri-apps/api/path";
 import { invoke } from "@tauri-apps/api/tauri";
 declare var $: any; // for jQuery
 declare var Chessboard: any; // for chessboard.js
