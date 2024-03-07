@@ -1,7 +1,18 @@
-import { resolveResource } from "@tauri-apps/api/path";
 import { invoke } from "@tauri-apps/api/tauri";
 declare var $: any; // for jQuery
 declare var Chessboard: any; // for chessboard.js
+import blackBishop from './assets/chessPieces/bB.svg';
+import blackPawn from './assets/chessPieces/bP.svg';
+import blackQueen from './assets/chessPieces/bQ.svg';
+import blackRook from './assets/chessPieces/bR.svg';
+import blackKing from './assets/chessPieces/bK.svg';
+import blackKnight from './assets/chessPieces/bN.svg';
+import whiteBishop from './assets/chessPieces/wB.svg';
+import whitePawn from './assets/chessPieces/wP.svg';
+import whiteQueen from './assets/chessPieces/wQ.svg';
+import whiteRook from './assets/chessPieces/wR.svg';
+import whiteKnight from './assets/chessPieces/wN.svg';
+import whiteKing from './assets/chessPieces/wK.svg';
 
 var config = {
   draggable: true,
@@ -23,11 +34,36 @@ async function onSnapEnd() {
   board.position(await invoke("get_fen_simple"));
 }
 
-// all paths start from the root of the project (i.e. folder with index.html)
-async function pieceTheme(piece: string) {
-  const basePath = "src/assets/chessPieces/" + piece + ".svg";
-  const resolvedPath = await resolveResource(basePath);
-  return resolvedPath;
+// all paths start from the root of the project (i.e. folder with index.html
+function pieceTheme(piece: string) {
+  switch (piece) {
+    case "wB":
+      return whiteBishop;
+    case "bB":
+      return blackBishop;
+    case "wP":
+      return whitePawn;
+    case "bP":
+      return blackPawn;
+    case "wQ":
+      return whiteQueen;
+    case "bQ":
+      return blackQueen;
+    case "wR":
+      return whiteRook;
+    case "bR":
+      return blackRook;
+    case "wN":
+      return whiteKnight;
+    case "bN":
+      return blackKnight;
+    case "bK":
+      return blackKing;
+    case "wK":
+      return whiteKing;
+    default:
+      return null;
+  }
 }
 
 async function onDragStart(source: string, piece) {
