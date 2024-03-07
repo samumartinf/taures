@@ -24,8 +24,10 @@ async function onSnapEnd() {
 }
 
 // all paths start from the root of the project (i.e. folder with index.html)
-function pieceTheme(piece: string) {
-  return "src/assets/chessPieces/" + piece + ".svg";
+async function pieceTheme(piece: string) {
+  const basePath = "src/assets/chessPieces/" + piece + ".svg";
+  const resolvedPath = await resolveResource(basePath);
+  return resolvedPath;
 }
 
 async function onDragStart(source: string, piece) {
