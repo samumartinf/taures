@@ -264,7 +264,7 @@ impl Piece {
             }
         }
 
-        if queen_side {
+        if queen_side && source > 3{
             let mut blocked = false;
             for i in 1..=3 {
                 let position_to_check = source - i;

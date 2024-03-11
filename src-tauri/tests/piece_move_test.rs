@@ -521,23 +521,24 @@ fn test_legal_moves_should_allow_taking_piece_to_avoid_check() {
 
 #[test]
 fn test_legal_move_generation() {
+    let mut new_game = Game::init();
     let start = Instant::now();
-    let moves = count_moves_for_depth(1);
+    let moves = count_moves_for_depth(1, &mut new_game);
     let elapsed = start.elapsed();
     println!("Time taken for depth 1: {:?}", elapsed);
     
     let start = Instant::now();
-    let moves2 = count_moves_for_depth(2);
+    let moves2 = count_moves_for_depth(2, &mut new_game);
     let elapsed = start.elapsed();
     println!("Time taken for depth 2: {:?}", elapsed);
     
     let start = Instant::now();
-    let moves3 = count_moves_for_depth(3);
+    let moves3 = count_moves_for_depth(3, &mut new_game);
     let elapsed = start.elapsed();
     println!("Time taken for depth 3: {:?}", elapsed);
     
     let start = Instant::now();
-    let moves4 = count_moves_for_depth(4);
+    let moves4 = count_moves_for_depth(4, &mut new_game);
     let elapsed = start.elapsed();
     println!("Time taken for depth 4: {:?}", elapsed);
     assert_eq!(moves, 20);
@@ -546,17 +547,16 @@ fn test_legal_move_generation() {
     assert_eq!(moves4, 197281);
 }
 
-fn count_moves_for_depth(depth: u8) -> usize {
-    let mut game = Game::init();
+fn count_moves_for_depth(depth: u8, game: &mut Game) -> usize {
     if depth == 0 {
         return 1;
     }
     let mut count = 0;
 
-    let moves = game.get_all_moves_for_color(true);
+    let moves = game.get_all_moves_for_color(game.white_turn);
     for mv in moves {
         game.play_move_ob(&mv);
-        count += count_moves_for_depth(depth - 1);
+        count += count_moves_for_depth(depth - 1, game);
         game.undo_move();
     }
     count
