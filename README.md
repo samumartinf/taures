@@ -1,10 +1,18 @@
 # Taures
 A small multiplatform chess game written in Rust using Tauri
 
+## Building
+To build the project you need to have Rust installed. You can install Rust by following the instructions on the [Rust website](https://www.rust-lang.org/tools/install). After installing Rust you can build the project by running the following command in the root of the project:
+```bash
+pnpm tauri dev # For development
+pnpm tauri build # For building the project
+```
+
 TODO:
-* Allow blocking pieces as a legal move
-* Test legal move function
-* Implement Hashing of the board to save previously checked positions
+- [x] Allow blocking pieces as a legal move
+- [x ] Test legal move function
+- [x] Implement Hashing of the board to save previously checked positions
+- [ ] Speed up move generation
 
 ## Speed
 As of (26/02/2024) move generations is awfully slow, sadly these are the numbers with pseudolegal moves. The following numbers are attached:
