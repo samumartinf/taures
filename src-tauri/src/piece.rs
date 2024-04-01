@@ -114,7 +114,7 @@ impl Piece {
 
         //TODO: Remove the "unpromoted" pawn move
         // Generate the white promotions
-        if col == 7 && self.is_white {
+        if col == 6 && self.is_white {
             for i in 0..possible_moves.len(){
                 let mv = possible_moves[i];
                 if mv.target == 8u8 {
@@ -166,6 +166,16 @@ impl Piece {
                 }
             }
         }
+
+        for i in (0..possible_moves.len()).rev() {
+            if self.is_white && possible_moves[i].target == 7 && possible_moves[i].promotion == 0 {
+                possible_moves.remove(i);
+            }
+            if !self.is_white && possible_moves[i].target == 0 && possible_moves[i].promotion == 0 {
+                possible_moves.remove(i);
+            }
+        }
+
 
         let mut final_positions = Vec::new();
         for mv in possible_moves {

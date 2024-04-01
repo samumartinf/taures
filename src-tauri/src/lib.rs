@@ -90,6 +90,14 @@ pub struct Move {
     pub promotion: u8, // piece to promote to
 }
 
+pub struct MoveOutput {
+    pub source: u8,
+    pub target: u8, 
+    pub promotion: u8,
+    pub taken_piece: u8,
+    pub valid: bool
+}
+
 /// Implements the `ChessGame` trait for the `Game` struct.
 /// This trait provides methods for playing chess moves, getting legal moves, removing illegal moves, and more.
 impl ChessGame for Game {
@@ -415,6 +423,8 @@ impl ChessGame for Game {
 
         fen_string
     }
+
+
 
     fn play_move(&mut self, mv: Move, check_move_legality: bool) -> bool {
         if self.game_done {

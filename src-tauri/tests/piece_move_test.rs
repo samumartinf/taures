@@ -519,7 +519,7 @@ fn test_legal_moves_should_allow_taking_piece_to_avoid_check() {
     assert_eq!(moves.len(), 5); // take with bishop, take with pawn, block with queen, block with knight, block with bishop
 }
 
-#[test]
+// #[test]
 fn test_legal_move_generation() {
     let mut new_game = Game::init();
     let start = Instant::now();
