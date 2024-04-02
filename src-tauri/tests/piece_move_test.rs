@@ -519,7 +519,7 @@ fn test_legal_moves_should_allow_taking_piece_to_avoid_check() {
     assert_eq!(moves.len(), 5); // take with bishop, take with pawn, block with queen, block with knight, block with bishop
 }
 
-// #[test]
+#[test]
 fn test_legal_move_generation() {
     let mut new_game = Game::init();
     let start = Instant::now();
@@ -553,7 +553,7 @@ fn count_moves_for_depth(depth: u8, game: &mut Game) -> usize {
     }
     let mut count = 0;
 
-    let moves = game.get_all_moves_for_color(game.white_turn);
+    let moves = game.get_legal_moves(game.white_turn);
     for mv in moves {
         game.play_move_ob(&mv);
         count += count_moves_for_depth(depth - 1, game);
