@@ -33,7 +33,7 @@ pub trait ChessGame {
     fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move>;
     fn play_move_from_string(&mut self, initial_position: &str, final_position: &str, promotion_piece: &str) -> bool;
     fn play_move(&mut self, mv: Move, legal: bool) -> bool;
-    fn play_move_ob(&mut self, chess_move: &Move) -> bool;
+    fn play_move_ob(&mut self, chess_move: Move) -> bool;
     fn get_fen(&self) -> String;
     fn set_from_simple_fen(&mut self, fen: String) -> bool;
     fn set_from_fen(&mut self, fen: String);
@@ -103,9 +103,9 @@ pub struct MoveOutput {
 impl ChessGame for Game {
     /// Returns a vector of legal moves for the specified color.
     /// The `white` parameter indicates whether the moves are for the white player.
-    fn get_legal_moves(&self, white: bool) -> Vec<Move> {
+    fn get_legal_moves(&self, is_white: bool) -> Vec<Move> {
         // define the filter function
-        let moves = self.get_all_moves_for_color(white);
+        let moves = self.get_all_moves_for_color(is_white);
         self.remove_illegal_moves(moves)
     }
 
@@ -114,7 +114,7 @@ impl ChessGame for Game {
     fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move> {
         let mut game_copy = self.clone();
         let mut final_moves: Vec<Move> = vec![];
-        let mut king_position = game_copy.board.get_king_position(self.white_turn);
+        let mut king_position = game_copy.board.get_king_position(game_copy.white_turn);
 
         // No king found
         if king_position == 65u8 {
@@ -159,7 +159,7 @@ impl ChessGame for Game {
     //TODO: Optimize - use bit check instead of init_from_binary
     /// Returns a vector of all possible moves for the specified color incluiding captures.
     /// The `white` parameter indicates whether the moves are for the white player.
-    fn get_all_moves_for_color(&self, white: bool) -> Vec<Move> {
+    fn get_all_moves_for_color(&self, white_turn: bool) -> Vec<Move> {
         let mut moves = vec![];
 
         for square in 0..64 {
@@ -167,10 +167,9 @@ impl ChessGame for Game {
             if piece == 0 {
                 continue;
             }
-
             // avoid initialising the piece unless we have to get the moves
             let is_piece_white: bool = piece & WHITE_BIT != 0;
-            if white != is_piece_white {
+            if white_turn != is_piece_white {
                 continue;
             }
 
@@ -221,8 +220,8 @@ impl ChessGame for Game {
 
     /// Plays the specified move by calling the `play_move` method with the move's source and target squares.
     /// Returns `true` if the move was played successfully, `false` otherwise.
-    fn play_move_ob(&mut self, chess_move: &Move) -> bool {
-        self.play_move(*chess_move, false)
+    fn play_move_ob(&mut self, chess_move: Move) -> bool {
+        self.play_move(chess_move, false)
     }
 
     fn play_move_from_string(&mut self, source_square: &str, target_square: &str, promotion_piece: &str) -> bool {
@@ -236,7 +235,7 @@ impl ChessGame for Game {
         let mv = Move {
             source: initial_position_byte,
             target: final_position_byte,
-            promotion: 0,
+            promotion: _promotion,
         };
         self.play_move(mv, true)
     }
@@ -426,7 +425,7 @@ impl ChessGame for Game {
 
 
 
-    fn play_move(&mut self, mv: Move, check_move_legality: bool) -> bool {
+fn play_move(&mut self, mv: Move, check_move_legality: bool) -> bool {
         if self.game_done {
             let _winning_side: String = if self.white_turn {
                 "Black".to_string()
@@ -829,7 +828,7 @@ pub mod engine {
             // let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
                 // make the move
-                let success = self.game.play_move_ob(&mv);
+                let success = self.game.play_move_ob(mv);
                 if !success {
                     continue;
                 }
@@ -841,7 +840,7 @@ pub mod engine {
                 // update the best move
                 if score > best_score {
                     best_score = score;
-                    best_move = mv;
+                    best_move = mv.clone();
                 }
             }
             let source = position_helper::index_to_letter(best_move.source);

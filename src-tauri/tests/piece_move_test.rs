@@ -523,22 +523,22 @@ fn test_legal_moves_should_allow_taking_piece_to_avoid_check() {
 fn test_legal_move_generation() {
     let mut new_game = Game::init();
     let start = Instant::now();
-    let moves = count_moves_for_depth(1, &mut new_game);
+    let moves = perft(1, &mut new_game);
     let elapsed = start.elapsed();
     println!("Time taken for depth 1: {:?}", elapsed);
     
     let start = Instant::now();
-    let moves2 = count_moves_for_depth(2, &mut new_game);
+    let moves2 = perft(2, &mut new_game);
     let elapsed = start.elapsed();
     println!("Time taken for depth 2: {:?}", elapsed);
     
     let start = Instant::now();
-    let moves3 = count_moves_for_depth(3, &mut new_game);
+    let moves3 = perft(3, &mut new_game);
     let elapsed = start.elapsed();
     println!("Time taken for depth 3: {:?}", elapsed);
     
     let start = Instant::now();
-    let moves4 = count_moves_for_depth(4, &mut new_game);
+    let moves4 = perft(4, &mut new_game);
     let elapsed = start.elapsed();
     println!("Time taken for depth 4: {:?}", elapsed);
     assert_eq!(moves, 20);
@@ -547,16 +547,51 @@ fn test_legal_move_generation() {
     assert_eq!(moves4, 197281);
 }
 
-fn count_moves_for_depth(depth: u8, game: &mut Game) -> usize {
+#[test]
+fn test_legal_move_generation_postion1() {
+    let mut game = Game::init();
+    game.set_from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0".to_string());
+    let start = Instant::now();
+    let moves = perft(1, &mut game);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 1: {:?}", elapsed);
+
+    let start = Instant::now();
+    let moves2 = perft(2, &mut game);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 2: {:?}", elapsed);
+
+    let start = Instant::now();
+    let moves3 = perft(3, &mut game);
+    let elapsed = start.elapsed();
+    println!("Time taken for depth 3: {:?}", elapsed);
+
+    // let start = Instant::now();
+    // let moves4 = perft(4, &mut game);
+    // let elapsed = start.elapsed();
+    // println!("Time taken for depth 4: {:?}", elapsed);
+
+    assert_eq!(moves, 48);
+    assert_eq!(moves2, 2039);
+    assert_eq!(moves3, 97862);
+    // assert_eq!(moves4, 4085603);
+
+} 
+
+fn perft(depth: u8, game: &mut Game) -> usize {
     if depth == 0 {
         return 1;
     }
     let mut count = 0;
 
     let moves = game.get_legal_moves(game.white_turn);
+    if depth == 1 {
+      return moves.len();
+    }
+
     for mv in moves {
         game.play_move_ob(&mv);
-        count += count_moves_for_depth(depth - 1, game);
+        count += perft(depth - 1, game);
         game.undo_move();
     }
     count

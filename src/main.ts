@@ -158,17 +158,19 @@ async function onDrop(
   }
 
   // Check if move is legal
-  var move: boolean = await invoke("play_move", {
+  var move = {
     source: source,
     target: target,
     promotion: promotion_piece,
-  });
+  };
 
-  console.log("Move: " + move);
+  var isLegal: boolean = await invoke("play_move", move);
 
-  if (!move) {
-    return "snapback";
-  }
+  console.log("Move: " + move + "has legality=" + isLegal);
+
+  // if (!move) {
+  //   return "snapback";
+  // }
 }
 
 async function showPosition() {

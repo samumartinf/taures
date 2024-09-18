@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use cherris::*;
+use cherris::{engine::Engine, *};
 
 fn count_moves_for_depth(depth: u8) -> usize {
     let mut game = Game::init();
@@ -17,9 +17,18 @@ fn count_moves_for_depth(depth: u8) -> usize {
     count
 }
 
+fn bench_best_move_gen(depth: u8) {
+    let mut engine = Engine::init();
+
+    let best_move = engine.get_best_move(depth);
+}
+
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("Move gen depth 2", |b| b.iter(|| count_moves_for_depth(black_box(2))));
     c.bench_function("Move gen depth 3", |b| b.iter(|| count_moves_for_depth(black_box(3))));
+    c.bench_function("Best move depth 3", |b| b.iter(|| bench_best_move_gen(black_box(3))));
+    c.bench_function("Best move depth 2", |b| b.iter(|| bench_best_move_gen(black_box(2))));
+
 }
 
 criterion_group!(benches, criterion_benchmark);
