@@ -1,8 +1,10 @@
-use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame};
+use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame, Move};
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
+
+use cherris::constants::{ PIECE_BIT, WHITE_BIT, QUEEN };
 
 lazy_static! {
     static ref ENGINE: Arc<Mutex<Engine>> = Arc::new(Mutex::new(Engine::init()));
@@ -17,10 +19,31 @@ fn set_from_fen(fen: &str) -> String {
 }
 
 #[tauri::command]
-fn play_move(source: &str, target: &str, promotion: &str) -> bool {
+
+fn play_move(source: &str, target: &str, promotion: &str) -> String {
+    println!("We want to move from {} to {}.", source, target);
     let game = &mut ENGINE.lock().unwrap().game;
 
-    game.play_move_from_string(source, target, promotion)
+
+    // Force promotion to a queen for now 
+    let promotion_piece = match promotion {
+        "Q" => PIECE_BIT + WHITE_BIT + QUEEN,
+        "q" => PIECE_BIT + QUEEN,
+            _ => 0,
+        };
+
+    let move_obj = Move {
+        source: position_helper::letter_to_index(source.to_string()),
+        target: position_helper::letter_to_index(target.to_string()),
+        promotion: promotion_piece,
+    };
+
+    let is_legal = game.play_move_ob(move_obj);
+
+    println!("The move legality was {}", is_legal);
+    // get the FEN String
+    let fen = game.get_fen_simple();
+    fen
 }
 
 #[tauri::command]
@@ -81,8 +104,10 @@ fn make_random_move() -> String {
     let random_index = rng.gen_range(0..moves.len());
     let random_move = moves[random_index];
 
-    game.play_move_ob(&random_move);
-    game.get_fen_simple()
+    game.play_move_ob(random_move);
+    let fen = game.get_fen_simple();
+    println!("The FEN was: {}", fen);
+    return fen;
 }
 
 #[tauri::command]
@@ -93,7 +118,7 @@ fn play_best_move(depth: i32) -> String {
     let source_square = position_helper::index_to_letter(best_move.source);
     let target_square = position_helper::index_to_letter(best_move.target);
     println!("The best move was {} to {}", source_square, target_square);
-    engine.game.play_move_ob(&best_move);
+    engine.game.play_move_ob(best_move);
     engine.game.get_fen_simple()
 }
 

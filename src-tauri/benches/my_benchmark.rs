@@ -10,7 +10,7 @@ fn count_moves_for_depth(depth: u8) -> usize {
 
     let moves = game.get_all_moves_for_color(game.white_turn);
     for mv in moves {
-        game.play_move_ob(&mv);
+        game.play_move_ob(mv);
         count += count_moves_for_depth(depth - 1);
         game.undo_move();
     }
@@ -20,7 +20,7 @@ fn count_moves_for_depth(depth: u8) -> usize {
 fn bench_best_move_gen(depth: u8) {
     let mut engine = Engine::init();
 
-    let best_move = engine.get_best_move(depth);
+    let _best_move = engine.get_best_move(depth);
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

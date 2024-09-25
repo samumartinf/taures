@@ -31,7 +31,12 @@ pub struct Game {
 
 pub trait ChessGame {
     fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move>;
-    fn play_move_from_string(&mut self, initial_position: &str, final_position: &str, promotion_piece: &str) -> bool;
+    fn play_move_from_string(
+        &mut self,
+        initial_position: &str,
+        final_position: &str,
+        promotion_piece: &str,
+    ) -> bool;
     fn play_move(&mut self, mv: Move, legal: bool) -> bool;
     fn play_move_ob(&mut self, chess_move: Move) -> bool;
     fn get_fen(&self) -> String;
@@ -92,10 +97,10 @@ pub struct Move {
 
 pub struct MoveOutput {
     pub source: u8,
-    pub target: u8, 
+    pub target: u8,
     pub promotion: u8,
     pub taken_piece: u8,
-    pub valid: bool
+    pub valid: bool,
 }
 
 /// Implements the `ChessGame` trait for the `Game` struct.
@@ -124,7 +129,7 @@ impl ChessGame for Game {
 
         let mut king_in_check;
         for mv in moves {
-            let success = game_copy.play_move_ob(&mv);
+            let success = game_copy.play_move_ob(mv);
 
             // check for the original king's positions
             king_position = game_copy.board.get_king_position(!game_copy.white_turn);
@@ -135,7 +140,7 @@ impl ChessGame for Game {
             king_in_check = false;
             let oponent_moves = game_copy.get_all_moves_for_color(game_copy.white_turn);
             for oponent_move in oponent_moves {
-                if oponent_move.target == king_position as u8 {
+                if oponent_move.target == king_position {
                     king_in_check = true;
                     break;
                 }
@@ -224,10 +229,15 @@ impl ChessGame for Game {
         self.play_move(chess_move, false)
     }
 
-    fn play_move_from_string(&mut self, source_square: &str, target_square: &str, promotion_piece: &str) -> bool {
+    fn play_move_from_string(
+        &mut self,
+        source_square: &str,
+        target_square: &str,
+        promotion_piece: &str,
+    ) -> bool {
         let initial_position_byte = position_helper::letter_to_index(source_square.to_string());
         let final_position_byte = position_helper::letter_to_index(target_square.to_string());
-        let _promotion =  match promotion_piece {
+        let _promotion = match promotion_piece {
             "Q" => PIECE_BIT + WHITE_BIT + QUEEN,
             "q" => PIECE_BIT + QUEEN,
             _ => 0,
@@ -237,7 +247,7 @@ impl ChessGame for Game {
             target: final_position_byte,
             promotion: _promotion,
         };
-        self.play_move(mv, true)
+        self.play_move(mv, false)
     }
 
     fn set_from_simple_fen(&mut self, fen: String) -> bool {
@@ -273,7 +283,8 @@ impl ChessGame for Game {
                 board_state_index += 1;
             }
         }
-        return true;
+
+        true
     }
 
     fn set_from_fen(&mut self, fen: String) {
@@ -423,9 +434,7 @@ impl ChessGame for Game {
         fen_string
     }
 
-
-
-fn play_move(&mut self, mv: Move, check_move_legality: bool) -> bool {
+    fn play_move(&mut self, mv: Move, check_move_legality: bool) -> bool {
         if self.game_done {
             let _winning_side: String = if self.white_turn {
                 "Black".to_string()
@@ -519,7 +528,12 @@ fn play_move(&mut self, mv: Move, check_move_legality: bool) -> bool {
         // update the board
         // Handle promotion
         if piece.class == PieceType::Pawn && mv.promotion != 0 {
-            self.update_board_object(&Piece::init_from_binary(mv.promotion), mv.source, mv.target, en_passant_set);
+            self.update_board_object(
+                &Piece::init_from_binary(mv.promotion),
+                mv.source,
+                mv.target,
+                en_passant_set,
+            );
         } else {
             self.update_board_object(&piece, mv.source, mv.target, en_passant_set);
         }
@@ -580,12 +594,13 @@ impl Game {
                 } else {
                     self.board.castling &= 0b1111_1110;
                 }
+            }
+
+            // black turn
+            if is_kingside {
+                self.board.castling &= 0b1111_0111;
             } else {
-                if is_kingside {
-                    self.board.castling &= 0b1111_0111;
-                } else {
-                    self.board.castling &= 0b1111_1011;
-                }
+                self.board.castling &= 0b1111_1011;
             }
             return;
         }
@@ -806,7 +821,6 @@ pub mod engine {
         }
 
         pub fn get_best_move(&mut self, depth: u8) -> Move {
-
             let start = Instant::now();
             self.num_positions_evaluated = 0;
             self.cache_hits_last_eval = 0;
@@ -840,7 +854,7 @@ pub mod engine {
                 // update the best move
                 if score > best_score {
                     best_score = score;
-                    best_move = mv.clone();
+                    best_move = mv;
                 }
             }
             let source = position_helper::index_to_letter(best_move.source);
@@ -849,17 +863,17 @@ pub mod engine {
                 println!("No legal moves available");
                 return best_move;
             }
-            println!(
-                "Best move: {}{} - score: {}",
-                source, target, best_score, 
-            );
+            println!("Best move: {}{} - score: {}", source, target, best_score,);
 
-            let cash_hit_rate = self.cache_hits_last_eval as f32 / self.num_positions_evaluated as f32;
+            let cash_hit_rate =
+                self.cache_hits_last_eval as f32 / self.num_positions_evaluated as f32;
 
             println!(
                 "We evaluated {} positions with {} cache hits {}% rate in {:?}",
-                self.num_positions_evaluated, self.cache_hits_last_eval,
-                cash_hit_rate*100f32, start.elapsed(),
+                self.num_positions_evaluated,
+                self.cache_hits_last_eval,
+                cash_hit_rate * 100f32,
+                start.elapsed(),
             );
             best_move
         }
@@ -875,7 +889,7 @@ pub mod engine {
             let moves = self.game.get_all_moves_for_color(self.game.white_turn);
             let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
-                let success = self.game.play_move_ob(&mv);
+                let success = self.game.play_move_ob(mv);
                 if !success {
                     continue;
                 }

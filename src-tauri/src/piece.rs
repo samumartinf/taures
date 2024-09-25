@@ -54,7 +54,7 @@ impl Piece {
             .is_some_and(|x| *x == 0u8)
         {
             possible_moves.push(Move {
-                source: source,
+                source,
                 target: one_row as u8,
                 promotion: 0,
             });
@@ -71,7 +71,7 @@ impl Piece {
                 .is_some_and(|x| *x == 0u8)
         {
             possible_moves.push(Move {
-                source: source,
+                source,
                 target: two_rows as u8,
                 promotion: 0,
             });
@@ -92,7 +92,7 @@ impl Piece {
                 || board.en_passant == diagonal_right as u8)
         {
             possible_moves.push(Move {
-                source: source,
+                source,
                 target: diagonal_right as u8,
                 promotion: 0,
             });
@@ -106,7 +106,7 @@ impl Piece {
                 || board.en_passant == diagonal_left as u8)
         {
             possible_moves.push(Move {
-                source: source,
+                source,
                 target: diagonal_left as u8,
                 promotion: 0,
             });
@@ -119,16 +119,16 @@ impl Piece {
                 let mv = possible_moves[i];
                 if mv.target == 8u8 {
                     // append promotions
-                    let mut queen_mv = mv.clone();
+                    let mut queen_mv = mv;
                     queen_mv.promotion = PIECE_BIT + WHITE_BIT + QUEEN;
 
-                    let mut bishop_mv = mv.clone();
+                    let mut bishop_mv = mv;
                     bishop_mv.promotion = PIECE_BIT + WHITE_BIT + BISHOP;
 
-                    let mut rook_mv = mv.clone();
+                    let mut rook_mv = mv;
                     rook_mv.promotion = PIECE_BIT + WHITE_BIT + ROOK;
 
-                    let mut knight_mv = mv.clone();
+                    let mut knight_mv = mv;
                     knight_mv.promotion = PIECE_BIT + WHITE_BIT + KNIGHT;
 
                     possible_moves.push(queen_mv);
@@ -146,16 +146,16 @@ impl Piece {
                 let mv = possible_moves[i];
                 if mv.target == 8u8 {
                     // append promotions
-                    let mut queen_mv = mv.clone();
+                    let mut queen_mv = mv;
                     queen_mv.promotion = PIECE_BIT + QUEEN;
 
-                    let mut bishop_mv = mv.clone();
+                    let mut bishop_mv = mv;
                     bishop_mv.promotion = PIECE_BIT + BISHOP;
 
-                    let mut rook_mv = mv.clone();
+                    let mut rook_mv = mv;
                     rook_mv.promotion = PIECE_BIT + ROOK;
 
-                    let mut knight_mv = mv.clone();
+                    let mut knight_mv = mv;
                     knight_mv.promotion = PIECE_BIT + KNIGHT;
 
                     possible_moves.push(queen_mv);
@@ -210,7 +210,7 @@ impl Piece {
             }
             if position_helper::is_position_valid(new_position as u8, board, self.is_white) {
                 possible_positions.push(Move {
-                    source: source,
+                    source,
                     target: new_position as u8,
                     promotion: 0,
                 });
@@ -267,7 +267,7 @@ impl Piece {
             let rook = Piece::init_from_binary(piece_at_rook);
             if !blocked && rook.class == PieceType::Rook {
                 possible_positions.push(Move {
-                    source: source,
+                    source,
                     target: source + 2,
                     promotion: 0,
                 });
@@ -287,7 +287,7 @@ impl Piece {
             let rook = Piece::init_from_binary(piece_at_rook);
             if !blocked && rook.class == PieceType::Rook {
                 possible_positions.push(Move {
-                    source: source,
+                    source,
                     target: source - 2,
                     promotion: 0,
                 });
@@ -327,7 +327,7 @@ impl Piece {
                 // If a piece is found, we are now blocked from moving forward
                 blocked_right = piece_retrieved.is_some_and(|x| *x != 0u8);
                 possible_positions.push(Move {
-                    source: source,
+                    source,
                     target: source + i,
                     promotion: 0,
                 });
@@ -340,7 +340,7 @@ impl Piece {
                 // If a piece is found, we are now blocked from moving forward
                 blocked_left = piece_retrieved.is_some_and(|x| *x != 0u8);
                 possible_positions.push(Move {
-                    source: source,
+                    source,
                     target: source - i,
                     promotion: 0,
                 });
@@ -353,7 +353,7 @@ impl Piece {
                 // If a piece is found, we are now blocked from moving forward
                 blocked_down = piece_retrieved.is_some_and(|x| *x != 0u8);
                 possible_positions.push(Move {
-                    source: source,
+                    source,
                     target: source + ROW * i,
                     promotion: 0,
                 });
@@ -365,7 +365,7 @@ impl Piece {
 
                 blocked_up = piece_retrieved.is_some_and(|x| *x != 0u8);
                 possible_positions.push(Move {
-                    source: source,
+                    source,
                     target: source - ROW * i,
                     promotion: 0,
                 });
@@ -429,7 +429,7 @@ impl Piece {
 
                         blocked_down_right = piece_retrieved.is_some_and(|x| *x != 0u8);
                         moves.push(Move {
-                            source: source,
+                            source,
                             target: source + i + ROW * i,
                             promotion: 0,
                         });
@@ -440,7 +440,7 @@ impl Piece {
 
                         blocked_up_right = piece_retrieved.is_some_and(|x| *x != 0u8);
                         moves.push(Move {
-                            source: source,
+                            source,
                             target: source + i - ROW * i,
                             promotion: 0,
                         });
@@ -454,7 +454,7 @@ impl Piece {
 
                         blocked_down_left = piece_retrieved.is_some_and(|x| *x != 0u8);
                         moves.push(Move {
-                            source: source,
+                            source,
                             target: source - i + ROW * i,
                             promotion: 0,
                         });
@@ -465,7 +465,7 @@ impl Piece {
 
                         blocked_up_left = piece_retrieved.is_some_and(|x| *x != 0u8);
                         moves.push(Move {
-                            source: source,
+                            source,
                             target: (source - i - ROW * i),
                             promotion: 0,
                         });
@@ -535,12 +535,12 @@ impl BasicPiece for Piece {
     /// A vector of `u8` representing the possible positions for the current piece.
     fn possible_moves(&self, position: u8, board: &Board) -> Vec<Move> {
         let possible_positions: Vec<Move> = match self.class {
-            PieceType::Pawn => Piece::pawn_moves(&self, position, board),
-            PieceType::King => Piece::king_moves(&self, position, board),
-            PieceType::Bishop => Piece::bishop_moves(&self, position, board),
-            PieceType::Queen => Piece::queen_moves(&self, position, board),
-            PieceType::Rook => Piece::rook_moves(&self, position, board),
-            PieceType::Knight => Piece::knight_moves(&self, position, board),
+            PieceType::Pawn => Piece::pawn_moves(self, position, board),
+            PieceType::King => Piece::king_moves(self, position, board),
+            PieceType::Bishop => Piece::bishop_moves(self, position, board),
+            PieceType::Queen => Piece::queen_moves(self, position, board),
+            PieceType::Rook => Piece::rook_moves(self, position, board),
+            PieceType::Knight => Piece::knight_moves(self, position, board),
         };
         possible_positions
     }
