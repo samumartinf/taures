@@ -1,22 +1,52 @@
 {
-  "name": "taures",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^1.5.2",
-    "jquery": "^3.7.1"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^1.5.8",
-    "typescript": "^5.0.2",
-    "vite": "^5.0.0"
-  },
-  "packageManager": "pnpm@9.4.0+sha512.f549b8a52c9d2b8536762f99c0722205efc5af913e77835dbccc3b0b0b2ca9e7dc8022b78062c17291c48e88749c70ce88eb5a74f1fa8c4bf5e18bb46c8bd83a"
+	"name": "taures",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"test": "npm run test:integration && npm run test:unit",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write .",
+		"test:integration": "playwright test",
+		"test:unit": "vitest"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.28.1",
+		"@sveltejs/adapter-auto": "^3.0.0",
+		"@sveltejs/adapter-static": "^3.0.5",
+		"@sveltejs/kit": "^2.0.0",
+		"@sveltejs/vite-plugin-svelte": "^4.0.0-next.6",
+		"@tauri-apps/cli": "^1.6.2",
+		"@types/eslint": "^9.6.0",
+		"autoprefixer": "^10.4.20",
+		"eslint": "^9.0.0",
+		"eslint-config-prettier": "^9.1.0",
+		"eslint-plugin-svelte": "^2.36.0",
+		"globals": "^15.0.0",
+		"prettier": "^3.1.1",
+		"prettier-plugin-svelte": "^3.1.2",
+		"prettier-plugin-tailwindcss": "^0.6.5",
+		"svelte": "^5.0.0-next.1",
+		"svelte-check": "^4.0.0",
+		"tailwindcss": "^3.4.9",
+		"typescript": "^5.0.0",
+		"typescript-eslint": "^8.0.0",
+		"vite": "^5.0.3",
+		"vitest": "^2.0.0"
+	},
+	"type": "module",
+	"packageManager": "pnpm@9.4.0+sha512.f549b8a52c9d2b8536762f99c0722205efc5af913e77835dbccc3b0b0b2ca9e7dc8022b78062c17291c48e88749c70ce88eb5a74f1fa8c4bf5e18bb46c8bd83a",
+	"dependencies": {
+		"@chrisoakman/chessboardjs": "^1.0.0",
+		"@tauri-apps/api": "^1.6.0",
+		"bits-ui": "^0.21.15",
+		"clsx": "^2.1.1",
+		"svelte-chess": "^0.11.1",
+		"tailwind-merge": "^2.5.2",
+		"tailwind-variants": "^0.2.1"
+	}
 }

@@ -1,13 +1,12 @@
 {
   "build": {
-    "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist",
-    "withGlobalTauri": true
+    "beforeDevCommand": "pnpm dev",
+    "devPath": "http://localhost:5173",
+    "distDir": "../build"
   },
   "package": {
-    "productName": "tauress",
+    "productName": "taures",
     "version": "0.0.1"
   },
   "tauri": {
@@ -46,8 +45,8 @@
         "fullscreen": false,
         "resizable": true,
         "title": "taures",
-        "width": 750,
-        "height": 830
+        "width": 1000,
+        "height": 800 
       }
     ]
   }

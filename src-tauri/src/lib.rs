@@ -878,6 +878,35 @@ pub mod engine {
             best_move
         }
 
+        pub fn get_san_from_move(&mut self, chess_move: Move) -> String {
+            let piece_bit = self.game.board.state[chess_move.source as usize];
+            let piece = Piece::init_from_binary(piece_bit);
+            let target = position_helper::index_to_letter(chess_move.target);
+
+            let mut piece_str = "";
+            if piece.is_white {
+                piece_str = match piece.class {
+                    PieceType::King => "K",
+                    PieceType::Queen => "Q",
+                    PieceType::Rook => "R",
+                    PieceType::Bishop => "B",
+                    PieceType::Knight => "N",
+                    PieceType::Pawn => "",
+                };
+            } else {
+                piece_str = match piece.class {
+                    PieceType::King => "k",
+                    PieceType::Queen => "q",
+                    PieceType::Rook => "r",
+                    PieceType::Bishop => "b",
+                    PieceType::Knight => "n",
+                    PieceType::Pawn => "",
+                };
+            }
+            return format!("{}{}", piece_str, target);
+
+        }
+
         pub fn alpha_beta(&mut self, depth: u8, mut alpha: i32, beta: i32) -> i32 {
             // Update the counter
             self.num_positions_evaluated += 1;

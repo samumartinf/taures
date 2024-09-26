@@ -18,7 +18,6 @@ fn set_from_fen(fen: &str) -> String {
     game.get_fen()
 }
 
-#[tauri::command]
 
 fn play_move(source: &str, target: &str, promotion: &str) -> String {
     println!("We want to move from {} to {}.", source, target);
@@ -52,6 +51,8 @@ fn restart_game() {
     game.restart();
 }
 
+
+// TODO: We shoud return the FEN here
 #[tauri::command]
 fn undo_move() {
     let game = &mut ENGINE.lock().unwrap().game;
@@ -71,11 +72,6 @@ fn get_fen() -> String {
     game.get_fen()
 }
 
-#[tauri::command]
-fn get_fen_simple() -> String {
-    let game = &mut ENGINE.lock().unwrap().game;
-    game.get_fen_simple()
-}
 
 #[tauri::command]
 fn get_piece_at_square(square: &str) -> String {
@@ -83,11 +79,6 @@ fn get_piece_at_square(square: &str) -> String {
     game.get_piece_at_square(square.to_string())
 }
 
-#[tauri::command]
-fn get_position_string() {
-    let game = &mut ENGINE.lock().unwrap().game;
-    game.board.show()
-}
 
 #[tauri::command]
 fn make_random_move() -> String {
@@ -105,13 +96,13 @@ fn make_random_move() -> String {
     let random_move = moves[random_index];
 
     game.play_move_ob(random_move);
-    let fen = game.get_fen_simple();
+    let fen = game.get_fen();
     println!("The FEN was: {}", fen);
     return fen;
 }
 
 #[tauri::command]
-fn play_best_move(depth: i32) -> String {
+fn get_engine_move(depth: i32) -> String {
     println!("Playing best move with depth: {}", depth);
     let mut engine = ENGINE.lock().unwrap();
     let best_move = engine.get_best_move(depth as u8);
@@ -119,7 +110,7 @@ fn play_best_move(depth: i32) -> String {
     let target_square = position_helper::index_to_letter(best_move.target);
     println!("The best move was {} to {}", source_square, target_square);
     engine.game.play_move_ob(best_move);
-    engine.game.get_fen_simple()
+    engine.game.get_fen()
 }
 
 #[tauri::command]
@@ -147,16 +138,13 @@ fn main() -> Result<()> {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             set_from_fen,
-            play_move,
             restart_game,
             undo_move,
             get_fen,
-            get_fen_simple,
             get_piece_at_square,
             get_possible_moves,
-            get_position_string,
             make_random_move,
-            play_best_move,
+            get_engine_move,
             get_legal_moves,
             set_fen,
         ])
