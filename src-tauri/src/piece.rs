@@ -113,11 +113,12 @@ impl Piece {
         }
 
         //TODO: Remove the "unpromoted" pawn move
-        // Generate the white promotions
-        if col == 6 && self.is_white {
+        // Generate the white promotions (white promotes on row 0, rank 8)
+        if self.is_white {
             for i in 0..possible_moves.len(){
                 let mv = possible_moves[i];
-                if mv.target == 8u8 {
+                let target_row = position_helper::get_row(mv.target);
+                if target_row == 0 {
                     // append promotions
                     let mut queen_mv = mv;
                     queen_mv.promotion = PIECE_BIT + WHITE_BIT + QUEEN;
@@ -140,11 +141,12 @@ impl Piece {
             }
         }
 
-        // Generate black promotions
-        if col == 2 && !self.is_white {
+        // Generate black promotions (black promotes on row 7, rank 1)
+        if !self.is_white {
             for i in 0..possible_moves.len() {
                 let mv = possible_moves[i];
-                if mv.target == 8u8 {
+                let target_row = position_helper::get_row(mv.target);
+                if target_row == 7 {
                     // append promotions
                     let mut queen_mv = mv;
                     queen_mv.promotion = PIECE_BIT + QUEEN;
@@ -168,10 +170,11 @@ impl Piece {
         }
 
         for i in (0..possible_moves.len()).rev() {
-            if self.is_white && possible_moves[i].target == 7 && possible_moves[i].promotion == 0 {
+            let target_row = position_helper::get_row(possible_moves[i].target);
+            if self.is_white && target_row == 0 && possible_moves[i].promotion == 0 {
                 possible_moves.remove(i);
             }
-            if !self.is_white && possible_moves[i].target == 0 && possible_moves[i].promotion == 0 {
+            if !self.is_white && target_row == 7 && possible_moves[i].promotion == 0 {
                 possible_moves.remove(i);
             }
         }
@@ -197,30 +200,43 @@ impl Piece {
     ///
     /// A vector containing the possible positions the king can move to.
     fn king_moves(&self, source: u8, board: &Board) -> Vec<Move> {
-        let offsets = [-9, -8, -7, -1, 1, 7, 8, 9];
-        let mut possible_positions = Vec::<Move>::new();
-        let row = position_helper::get_row(source) as i16;
-        let col = position_helper::get_col(source) as i16;
-        for offset in offsets.iter() {
-            let new_position = source as i16 + offset;
-            if (position_helper::get_row(new_position as u8) as i16 - row).abs() > 1
-                || (position_helper::get_col(new_position as u8) as i16 - col).abs() > 1
-            {
-                continue;
-            }
-            if position_helper::is_position_valid(new_position as u8, board, self.is_white) {
-                possible_positions.push(Move {
-                    source,
-                    target: new_position as u8,
-                    promotion: 0,
-                });
+        const MAX_KING_MOVES: usize = 8;
+        let mut possible_positions = [Move { source, target: 0, promotion: 0 }; MAX_KING_MOVES];
+        let mut move_count = 0;
+
+        let row = position_helper::get_row(source);
+        let col = position_helper::get_col(source);
+
+        // Precompute boundaries
+        let row_min = if row > 0 { row - 1 } else { 0 };
+        let row_max = if row < 7 { row + 1 } else { 7 };
+        let col_min = if col > 0 { col - 1 } else { 0 };
+        let col_max = if col < 7 { col + 1 } else { 7 };
+
+        for new_row in row_min..=row_max {
+            for new_col in col_min..=col_max {
+                if new_row == row && new_col == col {
+                    continue;
+                }
+                let new_position = new_row * 8 + new_col;
+                if position_helper::is_position_valid(new_position, board, self.is_white) {
+                    possible_positions[move_count] = Move {
+                        source,
+                        target: new_position,
+                        promotion: 0,
+                    };
+                    move_count += 1;
+                }
             }
         }
 
         // Handle castling
-        possible_positions.append(&mut self.castling_moves(source, board));
+        let castling_moves = self.castling_moves(source, board);
+        possible_positions[move_count..move_count + castling_moves.len()]
+            .copy_from_slice(&castling_moves);
+        move_count += castling_moves.len();
 
-        possible_positions
+        possible_positions[..move_count].to_vec()
     }
 
     /// Calculates the possible castling moves for a king.
@@ -264,13 +280,15 @@ impl Piece {
                 }
             }
             let piece_at_rook = board.state[(source + 3) as usize];
-            let rook = Piece::init_from_binary(piece_at_rook);
-            if !blocked && rook.class == PieceType::Rook {
-                possible_positions.push(Move {
-                    source,
-                    target: source + 2,
-                    promotion: 0,
-                });
+            if !blocked && piece_at_rook != 0 {
+                let rook = Piece::init_from_binary(piece_at_rook);
+                if rook.class == PieceType::Rook && rook.is_white == self.is_white {
+                    possible_positions.push(Move {
+                        source,
+                        target: source + 2,
+                        promotion: 0,
+                    });
+                }
             }
         }
 
@@ -284,13 +302,15 @@ impl Piece {
                 }
             }
             let piece_at_rook = board.state[(source - 4) as usize];
-            let rook = Piece::init_from_binary(piece_at_rook);
-            if !blocked && rook.class == PieceType::Rook {
-                possible_positions.push(Move {
-                    source,
-                    target: source - 2,
-                    promotion: 0,
-                });
+            if !blocked && piece_at_rook != 0 {
+                let rook = Piece::init_from_binary(piece_at_rook);
+                if rook.class == PieceType::Rook && rook.is_white == self.is_white {
+                    possible_positions.push(Move {
+                        source,
+                        target: source - 2,
+                        promotion: 0,
+                    });
+                }
             }
         }
 
@@ -510,14 +530,7 @@ impl Piece {
                 });
             }
         }
-        let mut final_positions = Vec::new();
-        for mv in possible_positions {
-            if position_helper::is_position_valid(mv.target, board, self.is_white) {
-                final_positions.push(mv);
-            }
-        }
-
-        final_positions
+        possible_positions
     }
 }
 

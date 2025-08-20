@@ -8,9 +8,9 @@ use cherris::constants::{ PIECE_BIT, WHITE_BIT, QUEEN };
 
 lazy_static! {
     static ref ENGINE: Arc<Mutex<Engine>> = Arc::new(Mutex::new(Engine::init()));
+    static ref ENGINE_COMPUTING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
 }
 
-#[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #[tauri::command]
 fn set_from_fen(fen: &str) -> String {
     let game = &mut ENGINE.lock().unwrap().game;
@@ -18,9 +18,9 @@ fn set_from_fen(fen: &str) -> String {
     game.get_fen()
 }
 
-
+#[tauri::command]
 fn play_move(source: &str, target: &str, promotion: &str) -> String {
-    println!("We want to move from {} to {}.", source, target);
+    println!("Playing move from {} to {} with promotion {}", source, target, promotion);
     let game = &mut ENGINE.lock().unwrap().game;
 
 
@@ -37,9 +37,8 @@ fn play_move(source: &str, target: &str, promotion: &str) -> String {
         promotion: promotion_piece,
     };
 
-    let is_legal = game.play_move_ob(move_obj);
+    game.play_move_ob(move_obj);
 
-    println!("The move legality was {}", is_legal);
     // get the FEN String
     let fen = game.get_fen_simple();
     fen
@@ -47,6 +46,7 @@ fn play_move(source: &str, target: &str, promotion: &str) -> String {
 
 #[tauri::command]
 fn restart_game() {
+    println!("Restarting game");
     let game = &mut ENGINE.lock().unwrap().game;
     game.restart();
 }
@@ -54,9 +54,11 @@ fn restart_game() {
 
 // TODO: We shoud return the FEN here
 #[tauri::command]
-fn undo_move() {
+fn undo_move() -> String {
+    println!("Undoing move");
     let game = &mut ENGINE.lock().unwrap().game;
     game.undo_move();
+    game.get_fen()
 }
 
 #[tauri::command]
@@ -97,25 +99,57 @@ fn make_random_move() -> String {
 
     game.play_move_ob(random_move);
     let fen = game.get_fen();
-    println!("The FEN was: {}", fen);
     return fen;
 }
 
 #[tauri::command]
-fn get_engine_move(depth: i32) -> String {
+async fn get_engine_move(depth: i32) -> String {
+    // Check if engine is already computing
+    {
+        let mut computing = ENGINE_COMPUTING.lock().unwrap();
+        if *computing {
+            println!("Engine is already computing, ignoring request");
+            return "COMPUTING".to_string();
+        }
+        *computing = true;
+    }
+    
     println!("Playing best move with depth: {}", depth);
-    let mut engine = ENGINE.lock().unwrap();
-    let best_move = engine.get_best_move(depth as u8);
-    let source_square = position_helper::index_to_letter(best_move.source);
-    let target_square = position_helper::index_to_letter(best_move.target);
-    println!("The best move was {} to {}", source_square, target_square);
-    engine.game.play_move_ob(best_move);
-    engine.game.get_fen()
+    
+    // Clone the Arc to move into the blocking task
+    let engine_arc = ENGINE.clone();
+    let computing_arc = ENGINE_COMPUTING.clone();
+    
+    // Run the CPU-intensive computation in a separate thread
+    let result = tokio::task::spawn_blocking(move || {
+        let mut engine = engine_arc.lock().unwrap();
+        let best_move = engine.get_best_move(depth as u8);
+        let source_square = position_helper::index_to_letter(best_move.source);
+        let target_square = position_helper::index_to_letter(best_move.target);
+        println!("The best move was {} to {}", source_square, target_square);
+        engine.game.play_move_ob(best_move);
+        let fen = engine.game.get_fen();
+        
+        // Reset the computing flag
+        *computing_arc.lock().unwrap() = false;
+        
+        fen
+    }).await;
+    
+    match result {
+        Ok(fen) => fen,
+        Err(e) => {
+            eprintln!("Error in engine computation: {}", e);
+            // Make sure to reset the flag on error
+            *ENGINE_COMPUTING.lock().unwrap() = false;
+            "Error".to_string()
+        }
+    }
 }
 
 #[tauri::command]
 fn get_legal_moves(source: &str) -> Vec<String> {
-    let game = &mut ENGINE.lock().unwrap().game;
+    let game: &mut cherris::Game = &mut ENGINE.lock().unwrap().game;
     let moves = game.get_legal_moves(game.white_turn);
     let mut result = Vec::new();
     for m in moves {
@@ -130,6 +164,11 @@ fn get_legal_moves(source: &str) -> Vec<String> {
 fn set_fen(fen: &str) -> bool {
     let game = &mut ENGINE.lock().unwrap().game;
     game.set_from_simple_fen(fen.to_string())
+}
+
+#[tauri::command]
+fn is_engine_computing() -> bool {
+    *ENGINE_COMPUTING.lock().unwrap()
 }
 
 fn main() -> Result<()> {
@@ -147,6 +186,8 @@ fn main() -> Result<()> {
             get_engine_move,
             get_legal_moves,
             set_fen,
+            play_move,
+            is_engine_computing
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

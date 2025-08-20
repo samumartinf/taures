@@ -119,7 +119,8 @@ impl ChessGame for Game {
     fn remove_illegal_moves(&self, moves: Vec<Move>) -> Vec<Move> {
         let mut game_copy = self.clone();
         let mut final_moves: Vec<Move> = vec![];
-        let mut king_position = game_copy.board.get_king_position(game_copy.white_turn);
+        let original_turn = game_copy.white_turn;
+        let mut king_position = game_copy.board.get_king_position(original_turn);
 
         // No king found
         if king_position == 65u8 {
@@ -132,15 +133,16 @@ impl ChessGame for Game {
             let success = game_copy.play_move_ob(mv);
 
             // check for the original king's positions
-            king_position = game_copy.board.get_king_position(!game_copy.white_turn);
+            king_position = game_copy.board.get_king_position(original_turn);
             if !success {
                 continue;
             }
 
             king_in_check = false;
-            let oponent_moves = game_copy.get_all_moves_for_color(game_copy.white_turn);
-            for oponent_move in oponent_moves {
-                if oponent_move.target == king_position {
+            // After playing the move, the turn has flipped, so we need the current player's moves (opponent of original)
+            let opponent_moves = game_copy.get_all_moves_for_color(game_copy.white_turn);
+            for opponent_move in opponent_moves {
+                if opponent_move.target == king_position {
                     king_in_check = true;
                     break;
                 }
@@ -226,7 +228,7 @@ impl ChessGame for Game {
     /// Plays the specified move by calling the `play_move` method with the move's source and target squares.
     /// Returns `true` if the move was played successfully, `false` otherwise.
     fn play_move_ob(&mut self, chess_move: Move) -> bool {
-        self.play_move(chess_move, false)
+        self.play_move(chess_move, true)
     }
 
     fn play_move_from_string(
@@ -776,13 +778,13 @@ pub mod engine {
                 self.cache_hits_last_eval += 1;
                 return self.positions_evaluated[&board_hash];
             }
-
+            
             let mut score = 0;
 
             // TODO: check for middle game and end game
 
             // Material
-            for i in 0..64 {
+            for i in 0..64{
                 let piece = board.state[i];
                 if piece == 0 {
                     continue;
@@ -815,6 +817,7 @@ pub mod engine {
                     score -= position_value;
                 }
             }
+
             self.positions_evaluated.insert(board_hash, score);
 
             score

@@ -5,8 +5,8 @@ use crate::piece::{BasicPiece, Piece};
 #[derive(Debug, Clone, Hash)]
 /// Represents a chess board.
 pub struct Board {
-    /// The state of the chess board represented as an array of 64 bytes.
-    /// Each index corresponds to a square on the board, and the value represents the piece on that square.
+    /// The traditional array-based board representation.
+    /// Each element represents a square with piece information encoded as bytes.
     pub state: [u8; 64],
 
     /// The bitboard representation of the chess board.
@@ -155,7 +155,7 @@ impl Board {
         // Part 6: King
         self.bitboard[11] = 0b0001000000000000000000000000000000000000000000000000000000000000;
 
-        // White Pieces bitboard
+        // White Pieces bitboard - same order as above
         self.bitboard[0] = 0b0000000000000000000000000000000000000000000000001111111100000000;
         self.bitboard[1] = 0b0000000000000000000000000000000000000000000000000000000010000001;
         self.bitboard[2] = 0b0000000000000000000000000000000000000000000000000000000001000010;
