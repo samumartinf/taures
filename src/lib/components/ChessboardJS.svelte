@@ -26,6 +26,17 @@
   let turn = 'w';
   let customFen = '';
   let board: any;
+  let engineDepth = 3; // Default engine depth
+  let isEngineThinking = false;
+  let playMode = false; // false = manual mode, true = play against engine
+  let humanColor = 'w'; // 'w' = human plays white, 'b' = human plays black
+  let lastEngineStats = {
+    positions: 0,
+    timeMs: 0,
+    positionsPerSecond: 0,
+    bestMove: '',
+    depth: 0
+  };
   let debugInfo = {
     boardFen: '',
     engineFen: '',
@@ -91,6 +102,12 @@
       return false;
     }
     
+    // In play mode, only allow human to move their color
+    if (playMode && turn !== humanColor) {
+      console.log("It's the engine's turn");
+      return false;
+    }
+    
     // Check if the board and engine are in sync
     if (debugInfo.boardFen.split(' ')[0] !== debugInfo.engineFen.split(' ')[0]) {
       console.log("Board and engine out of sync during drag start, synchronizing...");
@@ -153,6 +170,13 @@
       // Update turn after legal move
       await updateTurn();
       
+      // In play mode, check if it's now the engine's turn (check after turn is updated)
+      setTimeout(() => {
+        if (playMode && turn !== humanColor) {
+          makeEngineMove(); 
+        }
+      }, 500); // Small delay for better UX and to let turn update
+      
       return true; // Return undefined for legal moves
     } catch (error) {
       console.error("Error making move:", error);
@@ -185,13 +209,56 @@
   }
   
   async function makeBestMove() {
-    const newFen = await invoke("get_engine_move", { depth: 2 }) as string;
-    await syncBoardWithEngine();
+    try {
+      isEngineThinking = true;
+      const response = await invoke("get_engine_move", { depth: engineDepth }) as {
+        fen: string;
+        positions_evaluated: number;
+        time_ms: number;
+        positions_per_second: number;
+        best_move: string;
+      };
+      
+      lastEngineStats = {
+        positions: response.positions_evaluated,
+        timeMs: response.time_ms,
+        positionsPerSecond: response.positions_per_second,
+        bestMove: response.best_move,
+        depth: engineDepth
+      };
+      
+      await syncBoardWithEngine();
+    } catch (error) {
+      console.error("Error getting engine move:", error);
+    } finally {
+      isEngineThinking = false;
+    }
+  }
+
+  // Automatic engine move for play mode
+  async function makeEngineMove() {
+    if (!playMode || turn === humanColor || isEngineThinking) return;
+    
+    console.log("Engine's turn, making automatic move...");
+    await makeBestMove();
   }
   
   async function restart() {
     await invoke("restart_game");
+    // Clear engine stats when starting new game
+    lastEngineStats = {
+      positions: 0,
+      timeMs: 0,
+      positionsPerSecond: 0,
+      bestMove: '',
+      depth: 0
+    };
     await syncBoardWithEngine();
+    
+    // In play mode, if human plays black, engine should move first
+    if (playMode && humanColor === 'b') {
+      setTimeout(() => makeEngineMove(), 1000); // Give time for board to update
+    }
   }
   
   async function undoMove() {
@@ -316,14 +383,109 @@
       <Button onclick={() => restart()}>New Game</Button>
       <Button onclick={() => undoMove()}>Undo</Button>
       <Button onclick={() => flipBoard()}>Flip Board</Button>
-      <Button onclick={() => makeRandomMove()}>Random Move</Button>
-      <Button onclick={() => makeBestMove()}>Best Move</Button>
+      {#if !playMode}
+        <Button onclick={() => makeRandomMove()}>Random Move</Button>
+        <Button 
+          onclick={() => makeBestMove()} 
+          disabled={isEngineThinking}
+        >
+          {isEngineThinking ? 'Thinking...' : `Best Move (Depth ${engineDepth})`}
+        </Button>
+      {:else}
+        <Button onclick={() => makeRandomMove()} variant="outline">Random Move</Button>
+        {#if isEngineThinking}
+          <Badge variant="secondary">Engine thinking...</Badge>
+        {/if}
+      {/if}
       <Button onclick={() => testSynchronization()} variant="outline">Sync Board</Button>
     </CardFooter>
   </Card>
   
   <!-- Controls and Debug Info -->
   <div class="flex flex-col gap-4">
+    <Card>
+      <CardHeader>
+        <CardTitle>Engine Settings</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <div class="space-y-3">
+          <div class="flex items-center space-x-2">
+            <input 
+              type="checkbox" 
+              id="play-mode" 
+              bind:checked={playMode}
+              class="rounded"
+            />
+            <label for="play-mode" class="text-sm font-medium">
+              Play against engine
+            </label>
+          </div>
+          
+          {#if playMode}
+            <div class="space-y-2 pl-6 border-l-2 border-gray-200">
+              <label class="text-sm font-medium">You play as:</label>
+              <div class="flex gap-2">
+                <label class="flex items-center space-x-1">
+                  <input 
+                    type="radio" 
+                    bind:group={humanColor} 
+                    value="w"
+                    on:change={() => restart()}
+                  />
+                  <span class="text-sm">White</span>
+                </label>
+                <label class="flex items-center space-x-1">
+                  <input 
+                    type="radio" 
+                    bind:group={humanColor} 
+                    value="b"
+                    on:change={() => restart()}
+                  />
+                  <span class="text-sm">Black</span>
+                </label>
+              </div>
+            </div>
+          {/if}
+        </div>
+        
+        <Separator />
+        
+        <div class="space-y-2">
+          <label for="depth-input" class="text-sm font-medium">Search Depth</label>
+          <div class="flex gap-2 items-center">
+            <Input 
+              id="depth-input" 
+              type="number" 
+              min="1" 
+              max="6" 
+              bind:value={engineDepth} 
+              class="w-20"
+            />
+            <span class="text-xs text-gray-500">
+              (1-6, higher = stronger but slower)
+            </span>
+          </div>
+        </div>
+        
+        <Separator />
+        
+        {#if lastEngineStats.positions > 0}
+          <div class="space-y-2">
+            <h3 class="text-sm font-medium">Last Engine Analysis</h3>
+            <div class="bg-gray-50 p-3 rounded text-xs space-y-1">
+              <p><span class="font-medium">Best Move:</span> {lastEngineStats.bestMove}</p>
+              <p><span class="font-medium">Depth:</span> {lastEngineStats.depth}</p>
+              <p><span class="font-medium">Time:</span> {lastEngineStats.timeMs}ms</p>
+              <p><span class="font-medium">Positions:</span> {lastEngineStats.positions.toLocaleString()}</p>
+              <p><span class="font-medium">Speed:</span> {Math.round(lastEngineStats.positionsPerSecond).toLocaleString()} pos/sec</p>
+            </div>
+          </div>
+          
+          <Separator />
+        {/if}
+      </CardContent>
+    </Card>
+
     <Card>
       <CardHeader>
         <CardTitle>Game Controls</CardTitle>

@@ -2,9 +2,19 @@ use cherris::{self, engine::Engine, position_helper, ChessDebugInfo, ChessGame, 
 use color_eyre::eyre::Result;
 use lazy_static::lazy_static;
 use rand::Rng;
+use serde::Serialize;
 use std::sync::{Arc, Mutex};
 
 use cherris::constants::{ PIECE_BIT, WHITE_BIT, QUEEN };
+
+#[derive(Serialize)]
+struct EngineResponse {
+    fen: String,
+    positions_evaluated: i64,
+    time_ms: u128,
+    positions_per_second: f64,
+    best_move: String,
+}
 
 lazy_static! {
     static ref ENGINE: Arc<Mutex<Engine>> = Arc::new(Mutex::new(Engine::init()));
@@ -64,7 +74,6 @@ fn undo_move() -> String {
 #[tauri::command]
 fn get_possible_moves(source: &str) -> Vec<String> {
     let game = &mut ENGINE.lock().unwrap().game;
-    game.undo_move();
     game.get_pseudolegal_moves(source.to_string())
 }
 
@@ -103,13 +112,13 @@ fn make_random_move() -> String {
 }
 
 #[tauri::command]
-async fn get_engine_move(depth: i32) -> String {
+async fn get_engine_move(depth: i32) -> Result<EngineResponse, String> {
     // Check if engine is already computing
     {
         let mut computing = ENGINE_COMPUTING.lock().unwrap();
         if *computing {
             println!("Engine is already computing, ignoring request");
-            return "COMPUTING".to_string();
+            return Err("COMPUTING".to_string());
         }
         *computing = true;
     }
@@ -122,28 +131,51 @@ async fn get_engine_move(depth: i32) -> String {
     
     // Run the CPU-intensive computation in a separate thread
     let result = tokio::task::spawn_blocking(move || {
+        use std::time::Instant;
+        
         let mut engine = engine_arc.lock().unwrap();
+        let start = Instant::now();
+        
         // Use the optimized engine for better performance
         let best_move = engine.get_best_move_optimized(depth as u8);
+        let elapsed = start.elapsed();
+        
         let source_square = position_helper::index_to_letter(best_move.source);
         let target_square = position_helper::index_to_letter(best_move.target);
-        println!("The best move was {} to {}", source_square, target_square);
+        let best_move_str = format!("{}-{}", source_square, target_square);
+        
+        println!("The best move was {} to {} in {:?}", source_square, target_square, elapsed);
+        
         engine.game.play_move_ob(best_move);
         let fen = engine.game.get_fen();
+        
+        let positions_evaluated = engine.num_positions_evaluated;
+        let time_ms = elapsed.as_millis();
+        let positions_per_second = if time_ms > 0 {
+            (positions_evaluated as f64) / (time_ms as f64 / 1000.0)
+        } else {
+            0.0
+        };
         
         // Reset the computing flag
         *computing_arc.lock().unwrap() = false;
         
-        fen
+        EngineResponse {
+            fen,
+            positions_evaluated,
+            time_ms,
+            positions_per_second,
+            best_move: best_move_str,
+        }
     }).await;
     
     match result {
-        Ok(fen) => fen,
+        Ok(response) => Ok(response),
         Err(e) => {
             eprintln!("Error in engine computation: {}", e);
             // Make sure to reset the flag on error
             *ENGINE_COMPUTING.lock().unwrap() = false;
-            "Error".to_string()
+            Err("Error in engine computation".to_string())
         }
     }
 }
