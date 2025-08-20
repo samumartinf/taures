@@ -28,8 +28,9 @@
   let board: any;
   let engineDepth = 3; // Default engine depth
   let isEngineThinking = false;
-  let playMode = false; // false = manual mode, true = play against engine
+  let playMode = true; // false = manual mode, true = play against engine
   let humanColor = 'w'; // 'w' = human plays white, 'b' = human plays black
+  let useOpeningVariety = true; // Enable/disable opening book variety
   let lastEngineStats = {
     positions: 0,
     timeMs: 0,
@@ -83,18 +84,17 @@
     }
   }
   
-  // Handle piece drag start
+  // Handle piece drag start - keep it simple like chess.js example
   async function onDragStart(source: string, piece: string) {
     console.log("Drag start from", source, "piece:", piece);
     
-    // Update debug info
+        // Update debug info
     debugInfo.boardFen = board.fen();
     debugInfo.piece = piece;
     debugInfo.engineFen = await invoke("get_fen") as string;
     debugInfo.enginePiece = await invoke("get_piece_at_square", { square: source }) as string;
     debugInfo.allowedMoves = await invoke("get_possible_moves", { source }) as string[];
     debugInfo.legalMoves = await invoke("get_legal_moves", { source }) as string[];
-    
     // Only allow the current player to move their pieces
     const pieceColor = piece.charAt(0);
     if (turn !== pieceColor) {
@@ -108,31 +108,15 @@
       return false;
     }
     
-    // Check if the board and engine are in sync
-    if (debugInfo.boardFen.split(' ')[0] !== debugInfo.engineFen.split(' ')[0]) {
-      console.log("Board and engine out of sync during drag start, synchronizing...");
-      return false; // Prevent drag after sync to ensure user sees the corrected position
-    }
-    
-    // Check if the piece exists at the source square in the engine
-    if (!debugInfo.enginePiece) {
-      console.log("No piece at source square in engine");
-      return false;
-    }
-    
     return true;
   }
   
-  // Handle piece drop
-  async function onDrop(source: string, target: string, piece: string, position: string, oldPosition: string) {
+  // Handle piece drop - simple like chess.js example
+  async function onDrop(source: string, target: string, piece: string) {
     console.log("Drop from", source, "to", target, "piece:", piece);
-    console.log("Position:", Chessboard.objToFen(position));
-    console.log("Old position:", Chessboard.objToFen(oldPosition));
-    console.log("Old engine FEN", await invoke("get_fen") as string);
     
     // If source and target are the same, it's not a move
     if (source === target) {
-      console.log("Source and target are the same, not a move");
       return 'snapback';
     }
     
@@ -144,42 +128,47 @@
       promotion = 'q'; // Promote to queen by default
     }
     
-    // Try to make the move
-    const move = {
-      source,
-      target,
-      promotion
-    };
-    
-    console.log("Attempting move:", move);
+    // Try to make the move with the engine
+    const move = { source, target, promotion };
     
     try {
-      if (!debugInfo.legalMoves.includes(move.target)) {
-        console.log("Illegal move, snapping back piece");
-        return 'snapback';
-      }
+      const isLegal = await invoke("is_move_legal", move) as boolean;
       
-      const isLegal = await invoke("play_move", move) as boolean;
-      console.log("new engine FEN", await invoke("get_fen") as string);
-      
+      // If illegal, snap back
       if (!isLegal) {
-        console.log("Illegal move, snapping back piece");
+        console.log("Illegal move, snapping back");
         return 'snapback';
       }
       
-      // Update turn after legal move
+      // Legal move - execute it
+      await invoke("play_move", move);
+      
+      // Update turn after successful move
       await updateTurn();
       
-      // In play mode, check if it's now the engine's turn (check after turn is updated)
-      setTimeout(() => {
-        if (playMode && turn !== humanColor) {
-          makeEngineMove(); 
-        }
-      }, 500); // Small delay for better UX and to let turn update
+      // In play mode, trigger engine move after human move
+      if (playMode && turn !== humanColor) {
+        setTimeout(() => makeEngineMove(), 500);
+      }
       
-      return true; // Return undefined for legal moves
+      // Move was successful, don't return anything (let the piece stay)
+      
     } catch (error) {
       console.error("Error making move:", error);
+      return 'snapback';
+    }
+  }
+  
+  // Handle snap end - sync visual board with engine state (like chess.js example)
+  async function onSnapEnd() {
+    // Update the board position after the piece snap
+    // This handles castling, en passant, pawn promotion display
+    try {
+      const currentFen = await invoke("get_fen") as string;
+      board.position(currentFen);
+      // Note: we don't call updateTurn() here since onDrop already handles it
+    } catch (error) {
+      console.error("Error in onSnapEnd:", error);
     }
   }
   
@@ -292,13 +281,14 @@
           pieceTheme: pieceTheme,
           onDragStart: onDragStart,
           onDrop: onDrop,
-          moveSpeed: 'fast',
-          snapbackSpeed: 100,
-          snapSpeed: 100,
-          trashSpeed: 100, // Speed at which pieces are moved when they are invalid
-          sparePieces: false, // Don't show spare pieces
-          showErrors: true, // Show errors in console
-          showNotation: true // Show rank/file notation
+          onSnapEnd: onSnapEnd, // Called when piece finishes moving/snapping back
+          moveSpeed: 50, // Make moves faster to reduce visual confusion
+          snapbackSpeed: 50, // Make snapback faster
+          snapSpeed: 50,
+          trashSpeed: 100,
+          sparePieces: false,
+          showErrors: true,
+          showNotation: true
         };
         
         try {
@@ -307,6 +297,9 @@
           
           // Initialize the game
           await restart();
+          
+          // Load opening variety setting
+          useOpeningVariety = await invoke('get_opening_variety') as boolean;
           
           // Make the board responsive
           window.addEventListener('resize', () => {
@@ -446,6 +439,26 @@
               </div>
             </div>
           {/if}
+        </div>
+        
+        <Separator />
+        
+        <div class="space-y-3">
+          <div class="flex items-center space-x-2">
+            <input 
+              type="checkbox" 
+              id="opening-variety" 
+              bind:checked={useOpeningVariety}
+              on:change={() => invoke('set_opening_variety', { enabled: useOpeningVariety })}
+              class="rounded"
+            />
+            <label for="opening-variety" class="text-sm font-medium">
+              Opening variety
+            </label>
+          </div>
+          <p class="text-xs text-gray-500 pl-6">
+            Uses different popular openings instead of always playing the "best" first moves
+          </p>
         </div>
         
         <Separator />
