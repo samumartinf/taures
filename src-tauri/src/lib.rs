@@ -3,12 +3,18 @@ use std::vec;
 pub mod board;
 pub mod constants;
 pub mod piece;
+pub mod masks;
+pub mod bitboard_movegen;
+pub mod bitboard_test;
+pub mod performance_test;
+pub mod fast_engine;
 
 use crate::constants::{
     BISHOP, CHECK_PIECE, COL, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, ROW, WHITE_BIT,
 };
 use board::Board;
 use piece::{BasicPiece, Piece, PieceType};
+use bitboard_movegen::BitboardMoveGen;
 
 #[derive(Debug, Clone)]
 /// Represents a game of chess.
@@ -49,6 +55,7 @@ pub trait ChessGame {
     fn get_all_moves_for_color(&self, white: bool) -> Vec<Move>;
     fn get_capture_moves(&self) -> Vec<Move>;
     fn get_legal_moves(&self, white: bool) -> Vec<Move>;
+    fn get_all_moves_bitboard(&self, white: bool) -> Vec<Move>;
     // fn play_legal_move(&mut self, mv: &Move) -> bool;
 }
 
@@ -109,8 +116,8 @@ impl ChessGame for Game {
     /// Returns a vector of legal moves for the specified color.
     /// The `white` parameter indicates whether the moves are for the white player.
     fn get_legal_moves(&self, is_white: bool) -> Vec<Move> {
-        // define the filter function
-        let moves = self.get_all_moves_for_color(is_white);
+        // Use fast bitboard move generation as the primary source
+        let moves = self.get_all_moves_bitboard(is_white);
         self.remove_illegal_moves(moves)
     }
 
@@ -140,7 +147,7 @@ impl ChessGame for Game {
 
             king_in_check = false;
             // After playing the move, the turn has flipped, so we need the current player's moves (opponent of original)
-            let opponent_moves = game_copy.get_all_moves_for_color(game_copy.white_turn);
+            let opponent_moves = game_copy.get_all_moves_bitboard(game_copy.white_turn);
             for opponent_move in opponent_moves {
                 if opponent_move.target == king_position {
                     king_in_check = true;
@@ -158,7 +165,7 @@ impl ChessGame for Game {
     /// Returns a vector of capture moves for the current player.
     /// A capture move is a move that captures an opponent's piece.
     fn get_capture_moves(&self) -> Vec<Move> {
-        let mut moves = self.get_all_moves_for_color(self.white_turn);
+        let mut moves = self.get_all_moves_bitboard(self.white_turn);
         moves.retain(|x| self.board.state[x.target as usize] != 0);
         moves
     }
@@ -166,24 +173,20 @@ impl ChessGame for Game {
     //TODO: Optimize - use bit check instead of init_from_binary
     /// Returns a vector of all possible moves for the specified color incluiding captures.
     /// The `white` parameter indicates whether the moves are for the white player.
+    /// Now uses fast bitboard-based move generation.
     fn get_all_moves_for_color(&self, white_turn: bool) -> Vec<Move> {
-        let mut moves = vec![];
+        // Use the faster bitboard implementation
+        self.get_all_moves_bitboard(white_turn)
+    }
 
-        for square in 0..64 {
-            let piece = self.board.state[square];
-            if piece == 0 {
-                continue;
-            }
-            // avoid initialising the piece unless we have to get the moves
-            let is_piece_white: bool = piece & WHITE_BIT != 0;
-            if white_turn != is_piece_white {
-                continue;
-            }
-
-            let piece = Piece::init_from_binary(piece);
-            moves.append(&mut piece.possible_moves(square as u8, &self.board));
-        }
-        moves
+    /// Returns a vector of all possible moves for the specified color using bitboards.
+    /// This is much faster than the traditional array-based approach.
+    fn get_all_moves_bitboard(&self, white: bool) -> Vec<Move> {
+        // Ensure bitboards are synchronized with the array
+        let mut board_copy = self.board.clone();
+        board_copy.update_bitboards_from_array();
+        
+        BitboardMoveGen::generate_moves(&board_copy, white)
     }
 
     /// Returns a vector of pseudolegal moves for the specified source square.
@@ -649,8 +652,13 @@ impl Game {
             self.board.en_passant = 0;
             self.en_passant = "-".to_string();
         }
+        
+        // Update both array and bitboard representations
         self.board.state[target as usize] = piece.binary;
         self.board.state[source as usize] = 0;
+        
+        // Keep bitboards in sync
+        self.board.update_bitboards_from_array();
     }
 }
 
@@ -746,8 +754,17 @@ pub mod engine {
     pub struct Engine {
         pub game: Game,
         pub positions_evaluated: HashMap<u64, i32>,
-        num_positions_evaluated: i64,
-        cache_hits_last_eval: i64,
+        pub num_positions_evaluated: i64,
+        pub cache_hits_last_eval: i64,
+        pub move_stack: Vec<MoveUndo>,
+    }
+    
+    #[derive(Debug, Clone)]
+    pub struct MoveUndo {
+        pub mv: Move,
+        pub captured_piece: u8,
+        pub en_passant: u8,
+        pub castling: u8,
     }
 
     impl Engine {
@@ -757,6 +774,7 @@ pub mod engine {
                 positions_evaluated: HashMap::new(),
                 num_positions_evaluated: 0,
                 cache_hits_last_eval: 0,
+                move_stack: Vec::new(),
             }
         }
 
@@ -766,6 +784,7 @@ pub mod engine {
                 positions_evaluated: HashMap::new(),
                 num_positions_evaluated: 0,
                 cache_hits_last_eval: 0,
+                move_stack: Vec::new(),
             }
         }
 
@@ -840,7 +859,7 @@ pub mod engine {
                 full_depth -= 1;
             }
 
-            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            let moves = self.game.get_all_moves_bitboard(self.game.white_turn);
             let moves = self.game.remove_illegal_moves(moves);
             // let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
@@ -918,7 +937,7 @@ pub mod engine {
                 return self.evaluate(&self.game.board.clone());
             }
             let mut best_score = -100000;
-            let moves = self.game.get_all_moves_for_color(self.game.white_turn);
+            let moves = self.game.get_all_moves_bitboard(self.game.white_turn);
             let moves = self.game.remove_illegal_moves(moves);
             for mv in moves {
                 let success = self.game.play_move_ob(mv);

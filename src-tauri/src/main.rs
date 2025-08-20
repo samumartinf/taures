@@ -123,7 +123,8 @@ async fn get_engine_move(depth: i32) -> String {
     // Run the CPU-intensive computation in a separate thread
     let result = tokio::task::spawn_blocking(move || {
         let mut engine = engine_arc.lock().unwrap();
-        let best_move = engine.get_best_move(depth as u8);
+        // Use the optimized engine for better performance
+        let best_move = engine.get_best_move_optimized(depth as u8);
         let source_square = position_helper::index_to_letter(best_move.source);
         let target_square = position_helper::index_to_letter(best_move.target);
         println!("The best move was {} to {}", source_square, target_square);

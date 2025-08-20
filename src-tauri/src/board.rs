@@ -1,5 +1,5 @@
 use crate::{BISHOP, KING, KNIGHT, PAWN_BIT, PIECE_BIT, QUEEN, ROOK, WHITE_BIT};
-
+use crate::masks;
 use crate::piece::{BasicPiece, Piece};
 
 #[derive(Debug, Clone, Hash)]
@@ -198,5 +198,201 @@ impl Board {
                 board_state_index += 1;
             }
         }
+        
+        // Update bitboards to match the array state
+        self.update_bitboards_from_array();
+    }
+
+    // Bitboard utility methods
+    
+    /// Updates all bitboards based on the current array state
+    pub fn update_bitboards_from_array(&mut self) {
+        // Clear all bitboards
+        self.bitboard = [0u64; 12];
+        
+        // Iterate through the array and set corresponding bits in bitboards
+        for square in 0..64 {
+            let piece = self.state[square];
+            if piece == 0 {
+                continue;
+            }
+            
+            let is_white = (piece & WHITE_BIT) != 0;
+            let piece_type = piece & 0b00001111; // Get piece type bits
+            
+            let bitboard_index = self.get_bitboard_index(piece_type, is_white);
+            self.bitboard[bitboard_index] |= 1u64 << square;
+        }
+    }
+    
+    /// Updates the array based on current bitboard state
+    pub fn update_array_from_bitboards(&mut self) {
+        // Clear the array
+        self.state = [0u8; 64];
+        
+        // Iterate through all bitboards and set pieces in array
+        for bitboard_index in 0..12 {
+            let mut bb = self.bitboard[bitboard_index];
+            let (piece_type, is_white) = self.get_piece_info_from_bitboard_index(bitboard_index);
+            
+            while bb != 0 {
+                let square = self.pop_lsb(&mut bb);
+                self.state[square] = self.encode_piece(piece_type, is_white);
+            }
+        }
+    }
+    
+    /// Gets the bitboard index for a piece type and color
+    fn get_bitboard_index(&self, piece_type: u8, is_white: bool) -> usize {
+        let base_index = match piece_type {
+            t if t == PAWN_BIT => 0,
+            t if t == ROOK => 1, 
+            t if t == KNIGHT => 2,
+            t if t == BISHOP => 3,
+            t if t == QUEEN => 4,
+            t if t == KING => 5,
+            _ => panic!("Invalid piece type: {}", piece_type),
+        };
+        
+        if is_white {
+            base_index
+        } else {
+            base_index + 6
+        }
+    }
+    
+    /// Gets piece type and color from bitboard index
+    fn get_piece_info_from_bitboard_index(&self, index: usize) -> (u8, bool) {
+        let is_white = index < 6;
+        let piece_index = index % 6;
+        
+        let piece_type = match piece_index {
+            0 => PAWN_BIT,
+            1 => ROOK,
+            2 => KNIGHT,
+            3 => BISHOP,
+            4 => QUEEN,
+            5 => KING,
+            _ => panic!("Invalid bitboard index: {}", index),
+        };
+        
+        (piece_type, is_white)
+    }
+    
+    /// Encodes a piece for the array representation
+    fn encode_piece(&self, piece_type: u8, is_white: bool) -> u8 {
+        let mut piece = PIECE_BIT + piece_type;
+        if is_white {
+            piece |= WHITE_BIT;
+        }
+        piece
+    }
+    
+    /// Pops the least significant bit and returns its position
+    fn pop_lsb(&self, bb: &mut u64) -> usize {
+        let lsb_pos = bb.trailing_zeros() as usize;
+        *bb &= *bb - 1; // Clear the LSB
+        lsb_pos
+    }
+    
+    /// Sets a piece on the board using bitboards
+    pub fn set_piece_bitboard(&mut self, square: u8, piece_type: u8, is_white: bool) {
+        let bitboard_index = self.get_bitboard_index(piece_type, is_white);
+        self.bitboard[bitboard_index] |= 1u64 << square;
+        self.state[square as usize] = self.encode_piece(piece_type, is_white);
+    }
+    
+    /// Removes a piece from the board using bitboards
+    pub fn remove_piece_bitboard(&mut self, square: u8) {
+        let piece = self.state[square as usize];
+        if piece != 0 {
+            let is_white = (piece & WHITE_BIT) != 0;
+            let piece_type = piece & 0b00001111;
+            let bitboard_index = self.get_bitboard_index(piece_type, is_white);
+            self.bitboard[bitboard_index] &= !(1u64 << square);
+        }
+        self.state[square as usize] = 0;
+    }
+    
+    /// Moves a piece using bitboards
+    pub fn move_piece_bitboard(&mut self, from: u8, to: u8) {
+        let piece = self.state[from as usize];
+        if piece != 0 {
+            // Remove piece from old position
+            self.remove_piece_bitboard(from);
+            
+            // Add piece to new position  
+            let is_white = (piece & WHITE_BIT) != 0;
+            let piece_type = piece & 0b00001111;
+            self.set_piece_bitboard(to, piece_type, is_white);
+        }
+    }
+    
+    /// Gets all pieces of a specific color as a combined bitboard
+    pub fn get_color_bitboard(&self, is_white: bool) -> u64 {
+        let start_index = if is_white { 0 } else { 6 };
+        let mut combined = 0u64;
+        for i in start_index..start_index + 6 {
+            combined |= self.bitboard[i];
+        }
+        combined
+    }
+    
+    /// Gets all pieces on the board as a combined bitboard
+    pub fn get_all_pieces_bitboard(&self) -> u64 {
+        self.get_color_bitboard(true) | self.get_color_bitboard(false)
+    }
+    
+    /// Gets attacks for a specific piece type at a square using bitboards
+    pub fn get_piece_attacks(&self, square: u8, piece_type: u8, is_white: bool) -> u64 {
+        match piece_type {
+            t if t == PAWN_BIT => {
+                if is_white {
+                    masks::WHITE_PAWN_ATTACKS[square as usize]
+                } else {
+                    masks::BLACK_PAWN_ATTACKS[square as usize]
+                }
+            }
+            t if t == KING => masks::KING_ATTACKS[square as usize],
+            t if t == KNIGHT => masks::KNIGHT_ATTACKS[square as usize],
+            t if t == ROOK => self.get_rook_attacks(square),
+            t if t == BISHOP => self.get_bishop_attacks(square),
+            t if t == QUEEN => self.get_rook_attacks(square) | self.get_bishop_attacks(square),
+            _ => 0u64,
+        }
+    }
+    
+    /// Gets rook attacks using magic bitboards
+    fn get_rook_attacks(&self, square: u8) -> u64 {
+        let square_idx = square as usize;
+        let mut blockers = self.get_all_pieces_bitboard() & masks::ROOK_MASKS[square_idx];
+        blockers = blockers.wrapping_mul(masks::ROOK_MAGIC_NUMBERS[square_idx]);
+        blockers >>= 64 - masks::ROOK_REL_BITS[square_idx];
+        masks::ROOK_ATTACKS[square_idx][blockers as usize]
+    }
+    
+    /// Gets bishop attacks using magic bitboards  
+    fn get_bishop_attacks(&self, square: u8) -> u64 {
+        let square_idx = square as usize;
+        let mut blockers = self.get_all_pieces_bitboard() & masks::BISHOP_MASKS[square_idx];
+        blockers = blockers.wrapping_mul(masks::BISHOP_MAGIC_NUMBERS[square_idx]);
+        blockers >>= 64 - masks::BISHOP_REL_BITS[square_idx];
+        masks::BISHOP_ATTACKS[square_idx][blockers as usize]
+    }
+    
+    /// Bitboard-based bit scanning (find least significant bit)
+    pub fn bitscan_forward(&self, bitboard: u64) -> usize {
+        let bitboard_combined = bitboard ^ (bitboard - 1);
+        let calculation = 0x03f79d71b4cb0a89u128 * bitboard_combined as u128;
+        let calc_truncated = calculation as u64;
+        let index = (calc_truncated >> 58) as usize;
+        masks::DEBRUIJN64[index]
+    }
+    
+    /// Pop least significant bit and return its position
+    pub fn pop_lsb_bitboard(&self, bitboard: &mut u64) -> usize {
+        let lsb_pos = self.bitscan_forward(*bitboard);
+        *bitboard &= *bitboard - 1;
+        lsb_pos
     }
 }

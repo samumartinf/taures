@@ -584,7 +584,7 @@ fn perft(depth: u8, game: &mut Game) -> usize {
     }
     let mut count = 0;
 
-    let moves = game.get_legal_moves(game.white_turn);
+    let moves = game.get_all_moves_bitboard(game.white_turn);
     if depth == 1 {
       return moves.len();
     }
